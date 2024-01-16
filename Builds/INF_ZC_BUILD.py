@@ -34,7 +34,7 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
     today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
     c = ccy_infl(a,today)
     
-    dc_curve = ois_dc_build(c.dc_curve, b).curve
+    dc_curve = ois_dc_build(c.dc_curve, b)
     
     #### date handling for hist 
     if isinstance(b,int) == True:
@@ -197,35 +197,50 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
 
     return infl_zc_build_output()
 
-
-#rpi = infl_zc_swap_build('UKRPI',b=0)
+rpi = infl_zc_swap_build('UKRPI',b=0)
 #rpi.rates
-#rpi.curve[0][250:270]
-#rpi.ref_date
-#rpi.base_month
-#rpi.interp
-
-#inf_fixings1[260:270]
-#inf_fixings2[260:270]
-#inf_fixings3[260:270]
-
-#inf_fixings1[295:301]
-#inf_fixings2[295:301]
-#inf_fixings3[295:301]
 
 
+def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast = 0, use_mkt_fixing = 0, trade_dt = 0, zc_rt = 0):
 
-def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast = 0, use_mkt_fixing = 0):
-
-#    inf_curve = ukrpi1
+    inf_curve = rpi
 #    st_date = ql.Date(1,12,2020)
 #    st_date = '6M'
-#    st_date = 0
-#    tenor = 1
-#    lag = 0
-#    use_forecast = 0
-#    use_mkt_fixing = 1
-#    not1 = 10
+    st_date = 0
+    tenor = 30
+    lag = 2
+    use_forecast = 0
+    use_mkt_fixing = 1
+    not1 = 100
+    trade_dt = '05-01-2024'
+    zc_rt = 3.162
+
+    if trade_dt != 0:
+        start = inf_curve.cal.advance(ql.Date(int(trade_dt.split('-')[0]),int(trade_dt.split('-')[1]),int(trade_dt.split('-')[2])),1,ql.Days)
+        end = inf_curve.cal.advance(start, tenor, ql.Years)
+        trade_curve = ois_dc_build("SONIA_DC", b=trade_dt)
+        trade_dc = trade_curve.curve
+
+    else:
+        if isinstance(st_date, ql.Date) == True:
+            start = st_date
+        elif isinstance(st_date, str) == True:
+            try:
+                start = ql.Date(int(st_date.split('-')[0]), int(st_date.split('-')[1]), int(st_date.split('-')[2]))
+            except:
+                if st_date[-1] in ('D', 'd'):
+                    unit = ql.Days
+                elif st_date[-1] in ('W', 'w'):
+                    unit = ql.Weeks
+                elif st_date[-1] in ('M', 'm'):
+                    unit = ql.Months
+                start = inf_curve.settle_date + ql.Period(st_date)
+
+        else:
+            start = inf_curve.settle_date + ql.Period(str(st_date) + "Y")
+
+        end = inf_curve.cal.advance(start, tenor, ql.Years)
+
 
     if use_forecast == 1:
         inf_fixings = inf_curve.curve[2]
@@ -237,23 +252,7 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
         inf_fixings = inf_curve.curve[0]
         last_fixing_month = inf_curve.last_pm
         
-    if isinstance(st_date,ql.Date) == True:
-        start = st_date
-    elif isinstance(st_date,str) == True:
-        try:
-            start = ql.Date(int(st_date.split('-')[0]),int(st_date.split('-')[1]),int(st_date.split('-')[2]))
-        except:
-            if st_date[-1] in ('D','d'):
-                unit = ql.Days
-            elif st_date[-1] in ('W','w'):
-                unit = ql.Weeks
-            elif st_date[-1] in ('M','m'):
-                unit = ql.Months
-            start = inf_curve.settle_date + ql.Period(st_date)
 
-    else:
-        start = inf_curve.settle_date + ql.Period(str(st_date)+"Y")
-    
     ### lagged start
     if inf_curve.interp == 0:
         start_month = inf_curve.cal.advance(start,-lag,ql.Months)
@@ -276,13 +275,56 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
     
     ### calc inf01
     try:
-        df1 = inf_curve.dc.discount(end_month)
+        df1 = inf_curve.dc.curve.discount(end)
     except:
         df1 = 1
     inf01 = tenor*((1+ (zc_rate / 100 ))**(tenor-1))* df1
+    conv01 = tenor*(tenor-1)*((1+ (zc_rate / 100 ))**(tenor-2))* df1/10000
     risk01 = inf01*not1*100
-    
-    
+    gamma01 = conv01 * not1 * 100
+
+    ### cross gamma
+    sh_curve = ql.ZeroSpreadedTermStructure(ql.YieldTermStructureHandle(inf_curve.dc.curve), ql.QuoteHandle(ql.SimpleQuote(0.01 / 100)))
+    df2 = sh_curve.discount(end)
+    cross_g1 = (df2-df1)*(inf01/df1)*not1*100
+    cross_g2 = (df2 - df1) * (conv01 / df1)*not1*100
+
+    #### calc PVs
+    if zc_rt != 0:
+        pv = not1* (((1+(zc_rate/100))**(tenor)) - ((1+(zc_rt/100))**(tenor))) * df1 * 1000000
+
+        df3 = trade_dc.discount(end)
+
+        inf01_at_trade = tenor * ((1 + (zc_rt / 100)) ** (tenor - 1)) * df3
+        conv01_at_trade = tenor * (tenor - 1) * ((1 + (zc_rt / 100)) ** (tenor - 2)) * df3 / 10000
+
+        zc_chg = 100*(zc_rate-zc_rt)
+        inf_pnl = (inf01_at_trade*not1*100*(zc_chg)) + (conv01_at_trade*not1*100*0.5*(zc_chg**2))
+
+        sh_ois_curve = ql.ZeroSpreadedTermStructure(ql.YieldTermStructureHandle(trade_dc), ql.QuoteHandle(ql.SimpleQuote(0.01 / 100)))
+        df4 = sh_ois_curve.discount(end)
+        cross_g1_at_trade = (df4 - df3) * (inf01_at_trade / df3)*not1*100
+        cross_g2_at_trade = (df4 - df3) * (conv01_at_trade / df3)*not1*100
+
+        rate_chg = 100*(Swap_Pricer([[inf_curve.dc,0,tenor]] , fixed_leg_freq = 0).rate[0] - Swap_Pricer([[trade_curve, trade_dt, tenor]], fixed_leg_freq=0).rate[0])   #### ideally match maturity but requires historical fixings
+        rates_pnl = (cross_g1_at_trade*rate_chg*zc_chg) + (cross_g2_at_trade*rate_chg*(zc_chg**2)*0.5)
+
+        ir_delta = (pv/df1)*(df1-df2)
+
+        pv_df = pd.DataFrame(columns = ['value','chg','risk (incp.)','delta','gamma'], index =['PV','Inf','Rates','Residual'] )
+        pv_df['value'] = [pv, inf_pnl, rates_pnl, pv-(inf_pnl+rates_pnl)]
+        pv_df['chg'] = ["", np.round(zc_chg,1), np.round(rate_chg,1), ""]
+        pv_df['risk (incp.)'] = ["", np.round(inf01_at_trade*not1*100, 1), np.round(cross_g1_at_trade, 1), ""]
+        pv_df['delta'] = ["", np.round(risk01, 1), np.round(ir_delta, 1), ""]
+        pv_df['gamma'] = ["", np.round(gamma01, 1), np.round(cross_g1, 1), ""]
+
+    else:
+        ir_delta = 0.0
+        pv_df = pd.DataFrame(columns=['delta', 'gamma'],index=['Inf', 'Rates'])
+        pv_df['delta'] = [np.round(risk01, 0), np.round(ir_delta, 0)]
+        pv_df['gamma'] = [np.round(gamma01, 0), np.round(cross_g1, 0)]
+
+
     class infl_zc_pricer_output():
         def __init__(self):
              self.base = base_month
@@ -292,7 +334,13 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
              self.interp = inf_curve.interp
              self.last_fm = last_fixing_month
              self.inf01 = np.round(inf01,1)
-             self.risk = np.round(risk01,1)
+             self.conv01 = np.round(conv01,1)
+             self.inf_risk = np.round(risk01,1)
+             self.inf_gamma = np.round(gamma01, 1)
+             self.cross_gamma = np.round(cross_g1, 1)
+             self.cross_gamma_inf_conv = np.round(cross_g2, 1)
+             self.rates_risk = np.round(ir_delta, 1)
+             self.tab = pv_df.round(1)
 
     return infl_zc_pricer_output()
 

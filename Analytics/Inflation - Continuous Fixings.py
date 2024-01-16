@@ -1,7 +1,7 @@
 ##### RPI constant month plotting
 import pandas as pd
 
-latest = '20231230'    ##### get data up to this date - bbg format
+latest = '20240131'    ##### get data up to this date - bbg format
 
 #### RPI: Mar25
 o1 = con.bdh('.RPI0325 U Index' , 'PX_LAST', '20220420', latest, longdata = True)
@@ -248,7 +248,7 @@ plt.show()
 
 
 ############################# one specific fwd fixing from scratch!
-m='9'
+m='10'
 ticker = ['EUSWIF'+m+' INFA Curncy', 'EUSWIH'+m+' INFA Curncy']
 today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
 
@@ -286,7 +286,7 @@ for i in np.arange(len(df1)):
 
 
 fig, ax1 = plt.subplots(figsize=(10,8))
-ax1.plot(df1['date'],df1['fix'], label ='Sep-24 XT')
+ax1.plot(df1['date'],df1['fix'], label ='Oct-24 XT')
 ax1.set_ylabel("xt", color="blue", fontsize=14)
 plt.legend(loc = 'upper left')
 #ax2 = ax1.twinx()

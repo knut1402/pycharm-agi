@@ -30,6 +30,7 @@ import time
 
 pd.set_option('display.max_columns', 10000)
 pd.set_option('display.width', 10000)
+pd.options.display.float_format = '{:,}'.format
 pd.options.mode.chained_assignment = None
 
 ## BBG API

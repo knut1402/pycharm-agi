@@ -1,5 +1,5 @@
 
-latest = '20231030'
+latest = '20240131'
 
 ### china credit impulse
 x1 = con.bdh('CHBGREVO Index' , 'PX_LAST', '20120101', latest, longdata = True)
@@ -136,8 +136,8 @@ plt.show()
 
 
 #### household spending
-x1 = con.bdh('USXITORL Index', 'PX_LAST', '20140531', latest, longdata = True)
-x2 = con.bdh('USDPCSAM Index', 'PX_LAST', '20140531', latest, longdata = True)
+x1 = con.bdh('USXITORL Index', 'PX_LAST', '20140631', latest, longdata = True)
+x2 = con.bdh('USDPCSAM Index', 'PX_LAST', '20140631', latest, longdata = True)
 
 x1['reval'] = 100*x1['value'] / x1['value'][0]
 x2['reval'] = 100*x2['value'] / x2['value'][0]
@@ -182,6 +182,7 @@ ax3.legend(loc =  (0.01,0.8))
 ax3.tick_params(colors='red')
 
 ax1.axvline(x= ql_to_datetime(ql.Date(1,9,2022)), color = 'black', lw = 0.8)
+ax1.axvline(x= ql_to_datetime(ql.Date(1,9,2023)), color = 'black', lw = 0.8)
 #plt.grid(linestyle='--', linewidth=0.3)
 plt.title('Consumer Sentiment vs Commodities ', color = 'darkblue')
 plt.annotate('Source: UoM, Conference Board, EC, GfK, Bloomberg', (0,0), (0,-20), fontsize=6, xycoords='axes fraction', textcoords='offset points', va='top', style='italic')
@@ -192,6 +193,13 @@ plt.show()
 x1 = con.bdh('CNSTPRRE Index', 'PX_LAST', '19970727', latest, longdata = True)
 x2 = con.bdh('CNSTPRNR Index', 'PX_LAST', '19970727', latest, longdata = True)
 x3 = con.bdh('CNSTPRMA Index', 'PX_LAST', '19970727', latest, longdata = True)
+
+x4 = con.bdh('GDP CUR$ Index', 'PX_LAST', '19970727', latest, longdata = True)
+
+x5 = [          0.1*  x1['value'][i]   /          x4['value'][np.argmin(abs(x1['date'][i]-x4['date']))          ] for i in np.arange(len(x1))]
+x6 = [          0.1*  x2['value'][i]   /          x4['value'][np.argmin(abs(x2['date'][i]-x4['date']))          ] for i in np.arange(len(x1))]
+x7 = [          0.1*  x3['value'][i]   /          x4['value'][np.argmin(abs(x3['date'][i]-x4['date']))          ] for i in np.arange(len(x1))]
+
 
 fig, ax1 = plt.subplots(figsize=(10,8))
 ax1.plot(x1['date'],x1['value'], label ='Private - Residential')
@@ -205,6 +213,28 @@ plt.legend(loc = 'upper left')
 plt.title('US Construction Spending', color = 'darkblue')
 plt.annotate('Source:US Census Bureau, Bloomberg', (0,0), (0,-20), fontsize=6, xycoords='axes fraction', textcoords='offset points', va='top', style='italic')
 plt.show()
+
+#### area % of GDP
+
+fig, ax1 = plt.subplots(figsize=(10,8))
+ax1.plot(x1['date'],(x5), label ='Private - Residential')
+ax1.plot(x2['date'],x6, label ='Private - Non-Residential ex Manufacturing')
+ax1.plot(x3['date'],x7, label ='Private - Manufacturing')
+#ax1.axvline(x= ql_to_datetime(ql.Date(1,11,2021)), color = 'black', lw = 0.5)
+#ax1.axvline(x= ql_to_datetime(ql.Date(15,2,2022)), color = 'black', lw = 0.5)
+ax1.set_ylabel("% GDP", color="black", fontsize=10)
+plt.legend(loc = 'upper left')
+#plt.grid(linestyle='--', linewidth=0.3)
+plt.title('US Construction Spending', color = 'darkblue')
+plt.annotate('Source:US Census Bureau, Bloomberg', (0,0), (0,-20), fontsize=6, xycoords='axes fraction', textcoords='offset points', va='top', style='italic')
+plt.show()
+
+
+
+
+
+
+
 
 
 #### yield rolling average
