@@ -208,15 +208,15 @@ def data_heatmap(df1, inst=[], n=10, minmax=True, fsize=[20, 30]):
             cbar=False,
             ax=ax1,
         )
-        ax1.xaxis.set_tick_params(labelsize=7.5)
-        ax1.yaxis.set_tick_params(labelsize=8)
+        ax1.xaxis.set_tick_params(labelsize=8)
+        ax1.yaxis.set_tick_params(labelsize=12)
         plt.title(df1[i].name, fontsize=8, color="indigo", loc="left")
 
         ax2 = ax1.twinx()
         ax2.set_ylim(0, len(df2[i].columns))
         ax2.set_yticks(np.arange(0.5, len(df2[i].columns) + 0.5, 1))
         ax2.set_yticklabels(np.round(df2[i].iloc[-1][::-1], 1))
-        ax2.yaxis.set_tick_params(labelsize=8)
+        ax2.yaxis.set_tick_params(labelsize=12)
     plt.show()
     #    g_out = g_out + [fig]
     return

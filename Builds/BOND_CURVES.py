@@ -22,12 +22,12 @@ from Utilities import *
 
 def bond_curve_build(db_srch, d1, fwd_d, repo_rate, fwd_repo_rate):
 
-#    db_srch = ['ITALY_NOM']
+    db_srch = ['ITALY_NOM']
 #    db_srch = ['SWEDEN_NOM']
-#    d1 = [0, '04-01-2022']
-#    repo_rate = 0
-#    fwd_repo_rate = 0
-#    fwd_d = ['1m', '3m']
+    d1 = [0, '24-01-2024']
+    repo_rate = 0
+    fwd_repo_rate = 0
+    fwd_d = ['1m', '3m']
 
     cal = ql.UnitedStates(ql.UnitedStates.FederalReserve)
     repo_rate = [repo_rate]*(len(d1)-1)
@@ -162,18 +162,37 @@ def bond_curve_build(db_srch, d1, fwd_d, repo_rate, fwd_repo_rate):
             helper = ql.FixedRateBondHelper(ql.QuoteHandle(ql.SimpleQuote(row.price)), bondSettlementDays, 100.0, schedule, [row.coupon / 100], dc, convention, redemption)
             instruments.append(helper)    
 
-        curve_ns = ql.FittedBondDiscountCurve(bondSettlementDays, cal, instruments, dc, ql.NelsonSiegelFitting(), 1.0e-5, 10000)
+#        curve_ns = ql.FittedBondDiscountCurve(bondSettlementDays, cal, instruments, dc, ql.NelsonSiegelFitting(), 1.0e-10, 10000)
+
+        params = [bondSettlementDate, instruments, dc]
+        cubicNots = [-30.0, -20.0, 0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0]
+        fittingMethods = {
+            'NelsonSiegelFitting': ql.NelsonSiegelFitting(),
+            'SvenssonFitting': ql.SvenssonFitting(),
+            'SimplePolynomialFitting': ql.SimplePolynomialFitting(2),
+            'ExponentialSplinesFitting': ql.ExponentialSplinesFitting(),
+            'CubicBSplinesFitting': ql.CubicBSplinesFitting(cubicNots),}
+
+        fittedBondCurveMethods = {
+            label: ql.FittedBondDiscountCurve(*params, method,  1.0e-10, 10000)
+            for label, method in fittingMethods.items()
+        }
+
+        curve_ns = fittedBondCurveMethods.get('SvenssonFitting')
+
 
         t = np.arange(1, int(np.floor((ql.Date(x[-1].day,x[-1].month, x[-1].year)- d1_a[0])/365)+1))
         t_x1 = [d1_a[0] + ql.Period(str(i)+'Y') for i in t]
         t_x2 = [datetime.datetime(t_x1[i].year(), t_x1[i].month(), t_x1[i].dayOfMonth())  for i in np.arange(len(t_x1))  ]
-        rates_fwd = [100*curve_ns.forwardRate( bondSettlementDate, bondSettlementDate+ql.Period(str(i)+'Y'), dc,convention, ql.Annual).rate() for i in t]
+        rates_fwd = [100*curve_ns.forwardRate( bondSettlementDate, bondSettlementDate+ql.Period(str(i)+'Y'), dc, convention, ql.Annual).rate() for i in t]
+        rates_zeros = [100*curve_ns.zeroRate(float(i), ql.Annual).rate() for i in t]
         
         mpl.rcParams.update(mpl.rcParamsDefault)
         fig, ax = plt.subplots(2,1,figsize=[6.5,4.5],  gridspec_kw={'height_ratios': [2,1], 'hspace':0.135})
         sc = ax[0].scatter(x,y, s = 12, marker = 'x')
         ax[0].plot( t_x2 , rates_fwd, linewidth= 1, color = 'red' )
-        ax[1].plot( ( ql_to_datetime(d1_a[0]),x[-1]) , (0,0), linewidth= 0.5,  color='black' )
+        ax[0].plot(t_x2, rates_zeros, linewidth=1, color='pink')
+#        ax[1].plot( ( ql_to_datetime(d1_a[0]),x[-1]) , (0,0), linewidth= 0.5,  color='black' )
         for i in np.arange(len(z)):
             x1 = [x[j]+datetime.timedelta(int(i)*30) for j in np.arange(len(x))]
             ax[1].bar(tuple(x1) , tuple(z[i]), width = 50)

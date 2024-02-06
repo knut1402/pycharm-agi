@@ -290,6 +290,7 @@ def quick_swap(a, u1=ql.Years, u2=ql.Years, spread =0, fly = 0):
     ''' Quick Swap only works when actual dates do not need to be specified. settlement_days not specified currently '''
     output_rate=[]
     for k in np.arange(len(a)):
+        ql.Settings.instance().evaluationDate = a[k][0].trade_date
         termStructure = ql.YieldTermStructureHandle(a[k][0].curve)
         index = a[k][0].index(termStructure)
         engine = ql.DiscountingSwapEngine(termStructure)
@@ -309,40 +310,3 @@ def quick_swap(a, u1=ql.Years, u2=ql.Years, spread =0, fly = 0):
 
 
 
-
-
-
-
-
-
-
-
-#Swap_Pricer([[sofr,0,2],[sofr,0,5],[sofr,0,10]]).table
-
-#Swap_Pricer([[sofr,0,2],[sofr,0,5],[sofr,0,10]]).dates
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#test = Swap_Pricer([[eur3m,'3m',5],[eur3m,'6m',10]])
-
-#test.name
-#test.dv01
-#test.rate
-#test.npv
-#test.risk
-#test.table
-#test.dates
-
-#test.spread
-#test.fly

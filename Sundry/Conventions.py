@@ -1444,6 +1444,7 @@ def ccy(a, eval_date):
         fixing = "ESTRON Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0514 INDEX"
+        bbgplot_curve_tickers = ['EESWE', 'S0514FS']
         add_tenors = pd.DataFrame()
         sett_d = 2
         fixed_leg = ql.Period(1, ql.Years)
@@ -1470,6 +1471,7 @@ def ccy(a, eval_date):
         fixing = "SOFRRATE Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0490 INDEX"
+        bbgplot_curve_tickers = ['USOSFR', 'S0490FS']
         add_tenors = pd.DataFrame()
         sett_d = 2
         fixed_leg = ql.Period(1, ql.Years)
@@ -1522,6 +1524,7 @@ def ccy(a, eval_date):
         fixing = "SONIO/N Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0141 INDEX"
+        bbgplot_curve_tickers = ['BPSWS', 'S0141FS']
         add_tenors = pd.DataFrame()
         sett_d = 0
         fixed_leg = ql.Period(1, ql.Years)
@@ -1772,6 +1775,7 @@ def ccy(a, eval_date):
             self.fixing = fixing
             self.fixing_tenor = fixing_tenor
             self.bbg_curve = bbg_curve
+            self.bbgplot_tickers = bbgplot_curve_tickers
             self.add_tenors = add_tenors
             self.sett_d = sett_d
             self.index = index

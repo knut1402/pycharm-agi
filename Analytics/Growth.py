@@ -9,7 +9,10 @@ data_df[:20]
 
 ############# Run analysis
 
-us = get_data(data_df, 'US', '20000101', end=-1, cat1='all', cat2='all', change=6, roc =3, zs_period = 20)
+us = get_data(data_df, 'US', '20000101', end=-1, cat1='Activity', cat2='all', change=6, roc =3, zs_period = 20)
+ez = get_data(data_df, 'EZ', '20000101', end=-1, cat1='Activity', cat2='all', change=6, roc =3, zs_period = 20)
+uk = get_data(data_df, 'UK', '20000101', end=-1, cat1='Activity', cat2='all', change=6, roc =3, zs_period = 20)
+
 us.raw
 us.zs_pct
 
@@ -24,10 +27,12 @@ data_heatmap([uk.df_pct], n=5 , inst = ['GT10 govt'], minmax=True, fsize = [5,7]
 
 plt.show()
 
-data_heatmap([us.zs_pct], n=5 , minmax=True, fsize = [50,50])
+data_heatmap([us.zs_pct], n=3 , minmax=True, fsize = [50,20])
+data_heatmap([ez.zs_pct], n=5 , minmax=True, fsize = [50,50])
+data_heatmap([uk.zs_pct], n=4 , minmax=True, fsize = [50,50])
 plt.show()
 
-data_heatmap([us.zs_pct_roc], n=5 , inst = ['GT10 Govt'], minmax=True, fsize = [15,30])
+data_heatmap([us.zs_pct], n=4 , inst = ['GT10 Govt'], minmax=True, fsize = [50,50])
 
 data_heatmap([us.zs_raw], n=5 , fsize = [10,27])
 data_heatmap([us.zs_pct_roc], n=5 , fsize = [15,30])

@@ -280,10 +280,7 @@ def convert_date_format(date_str):
     date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
     return date_obj.strftime('%d-%m-%Y')
 
-
-
-
-
-
-
+#### df style map for -ve numbers in red
+    def style_negative(v, props=''):
+        return props if v < 0 else None
 

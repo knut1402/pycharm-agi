@@ -287,6 +287,8 @@ def ois_dc_build(a,b=0):
     rates_tab = rates_tab.reset_index(drop=True)
     rates_tab.columns = ['Tenor','SwapRate']
 
+    print("*** !!! ois_curve built !!! ***")
+
     class ois_build_output(): 
            
             def __init__(self):
@@ -304,6 +306,7 @@ def ois_dc_build(a,b=0):
                 self.fixing = c.fixing
                 self.ois_trigger = c.ois_trigger
                 self.ccy = curve_ccy
+                self.bbgplot_tickers = c.bbgplot_tickers
                 
     
     return ois_build_output()    

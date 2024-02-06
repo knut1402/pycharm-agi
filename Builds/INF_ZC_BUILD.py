@@ -1,6 +1,7 @@
 #### inflation swap build
 
 import os
+import sys
 import pandas as pd
 import numpy as np
 import datetime
@@ -19,8 +20,17 @@ con.start()
 pd.set_option('display.max_columns', 10000)
 pd.set_option('display.width', 10000)
 
+#sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProject/Builds"))
+#sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProject/Sundry"))
+#sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProject/"))
+#sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProject/DataLake"))
+
 from Conventions import FUT_CT, ccy, ccy_infl
 from OIS_DC_BUILD import ois_dc_build
+from SWAP_BUILD import swap_build
+from SWAP_PRICER import Swap_Pricer, Swap_curve_fwd, quick_swap
+from SWAP_TABLE import swap_table, swap_table2, curve_hmap
+
 from Utilities import *
 
 
@@ -32,6 +42,8 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
 #    base_month_offset=0
     
     today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
+    os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
+#    print(os.getcwd())
     c = ccy_infl(a,today)
     
     dc_curve = ois_dc_build(c.dc_curve, b)
@@ -178,6 +190,8 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
     else:
         inf_fixings3 = inf_fixings1
 
+    print("*** !!! inflation_curve built !!! ***" )
+
     class infl_zc_build_output():
         def __init__(self):
              self.curve = (inf_fixings1, inf_fixings3, inf_fixings2)
@@ -197,23 +211,23 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
 
     return infl_zc_build_output()
 
-rpi = infl_zc_swap_build('UKRPI',b=0)
+#rpi = infl_zc_swap_build('UKRPI',b=0)
 #rpi.rates
 
 
 def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast = 0, use_mkt_fixing = 0, trade_dt = 0, zc_rt = 0):
 
-    inf_curve = rpi
+#    inf_curve = rpi
 #    st_date = ql.Date(1,12,2020)
 #    st_date = '6M'
-    st_date = 0
-    tenor = 30
-    lag = 2
-    use_forecast = 0
-    use_mkt_fixing = 1
-    not1 = 100
-    trade_dt = '05-01-2024'
-    zc_rt = 3.162
+#    st_date = 0
+#    tenor = 30
+#    lag = 2
+#    use_forecast = 0
+#    use_mkt_fixing = 1
+#    not1 = 100
+#    trade_dt = '05-01-2024'
+#    zc_rt = 3.162
 
     if trade_dt != 0:
         start = inf_curve.cal.advance(ql.Date(int(trade_dt.split('-')[0]),int(trade_dt.split('-')[1]),int(trade_dt.split('-')[2])),1,ql.Days)
@@ -251,7 +265,7 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
     else:
         inf_fixings = inf_curve.curve[0]
         last_fixing_month = inf_curve.last_pm
-        
+
 
     ### lagged start
     if inf_curve.interp == 0:
@@ -259,20 +273,20 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
         start_month = start_month - start_month.dayOfMonth() + 1
         end_month = inf_curve.cal.advance(start_month,tenor,ql.Years)
         end_month = end_month - end_month.dayOfMonth() + 1
-        
+
         base_month = inf_fixings[inf_fixings['months'] == start_month]['months'].tolist()[0]
         index_ratio = (inf_fixings[inf_fixings['months'] == end_month]['index'].tolist()[0] / inf_fixings[inf_fixings['months'] == start_month]['index'].tolist()[0])
         zc_rate =  100*((index_ratio ** (1/tenor)) - 1)
-    else: 
+    else:
         start_month = start - ql.Period("3M")
         end_month = start_month + ql.Period(str(tenor)+"Y")
-        
+
         base_month = inf_fixings[inf_fixings['months'] == start_month]['months'].tolist()[0]
         index_ratio = (inf_fixings[inf_fixings['months'] == end_month]['index'].tolist()[0] / inf_fixings[inf_fixings['months'] == start_month]['index'].tolist()[0])
         zc_rate =  100*((index_ratio ** (1/tenor)) - 1)
 
     base_month_fix = inf_fixings[inf_fixings['months'] == start_month]['index'].tolist()[0]
-    
+
     ### calc inf01
     try:
         df1 = inf_curve.dc.curve.discount(end)
@@ -285,7 +299,11 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
 
     ### cross gamma
     sh_curve = ql.ZeroSpreadedTermStructure(ql.YieldTermStructureHandle(inf_curve.dc.curve), ql.QuoteHandle(ql.SimpleQuote(0.01 / 100)))
-    df2 = sh_curve.discount(end)
+    try:
+        df2 = sh_curve.discount(end)
+    except:
+        df2 = 1
+
     cross_g1 = (df2-df1)*(inf01/df1)*not1*100
     cross_g2 = (df2 - df1) * (conv01 / df1)*not1*100
 
@@ -380,19 +398,18 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
 #ukrpi2 = infl_zc_swap_build('UKRPI', b=-1)
 
 
-
 def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,  shift = [0,'1M','2M','3M'], price_nodes = 1, use_forecast = 0, use_mkt_fixing = 0):
     
-#    crvs = [xt, xt1]
+#    crvs = [ukrpi1, ukrpi2]
 #    shift = [0,'1M','2M','3M']
 #    outright_rates = [1,2,3,4,5,6,7,8,9,10,12,15,20,25,30]
 #    fwd_rates = [(1,1), (2,1), (3,1), (4,1), (2,2), (3,2), (5,5), (10,5), (10,10), (15,15) ]
 #    curve_rates = [(2,3), (2,5), (2,10), (5,10), (5,30), (10,30)]
 #    fly_rates = [(2,3,5), (2,5,10), (3,5,7), (5,10,30)]
-#    price_nodes = 1   
+#   price_nodes = 1
 #    lag = [3,3]
 #    use_forecast = 0
-#    use_mkt_fixing = 0
+#    use_mkt_fixing = 1
  
     x1 = []
     for i in np.arange(len(outright_rates)):
@@ -404,8 +421,8 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
         x2_mkt = []
         x2_barx = []
         for i in x_fixing:
-            x2_mkt.append( [  Infl_ZC_Pricer( crvs[j], i-ql.Period("1y"), 1, lag = 0, not1 = 10, use_forecast = 0, use_mkt_fixing = 1).zc_rate    for j in np.arange(len(crvs))]  )
-            x2_barx.append( [  Infl_ZC_Pricer( crvs[j], i-ql.Period("1y"), 1, lag = 0, not1 = 10, use_forecast = 1, use_mkt_fixing = 0).zc_rate    for j in np.arange(len(crvs))]  )
+            x2_mkt.append( [  Infl_ZC_Pricer( crvs[j], i-ql.Period("1y"), 1, lag = 0, not1 = 10, use_forecast = 0, use_mkt_fixing = 1,trade_dt = 0, zc_rt = 0).zc_rate    for j in np.arange(len(crvs))]  )
+            x2_barx.append( [  Infl_ZC_Pricer( crvs[j], i-ql.Period("1y"), 1, lag = 0, not1 = 10, use_forecast = 1, use_mkt_fixing = 0, trade_dt = 0, zc_rt = 0).zc_rate    for j in np.arange(len(crvs))]  )
         
         fix_mkt = flat_lst( [ (x2_mkt[i][0], [100*(x2_mkt[i][0]-x2_mkt[i][j]) for j in np.arange(1,len(crvs))], x2_barx[i][0],  100*(x2_mkt[i][0] - x2_barx[i][0])   ) for i in np.arange(len(x2_mkt))])
     else:
@@ -426,11 +443,48 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
     fwds = flat_lst( [ (x3[i][0], [100*(x3[i][0]-x3[i][j]) for j in np.arange(1,len(crvs))]) for i in np.arange(len(x3))] )
     curve = flat_lst( [ (x4[i][0], [1*(x4[i][0]-x4[i][j])   for j in np.arange(1,len(crvs))], [x4[ i+(len(curve_rates)*k)  ][0] for k in np.arange(1,len(shift))]) for i in np.arange(len(curve_rates))] )
     fly = flat_lst( [ (x5[i][0], [1*(x5[i][0]-x5[i][j])   for j in np.arange(1,len(crvs))], [x5[ i+(len(fly_rates)*k)  ][0] for k in np.arange(1,len(shift))]) for i in np.arange(len(fly_rates))] )
-    
 
+    df1 = pd.DataFrame()
+    df1['Tenor'] = outright_rates
+    df1['ZC'] = zc[0::2]
+    for i in np.arange(1,len(crvs)):
+        df1[str(crvs[i].ref_date)] = [ np.round(zc[i][0],1) for i in np.arange(len(zc))[1::2]]
+
+    df2 = pd.DataFrame()
+    df2['Fwds'] = fwd_rates
+    df2['ZC'] = fwds[0::2]
+    for i in np.arange(1, len(crvs)):
+        df2[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(fwds[i][0], 1) for i in np.arange(len(fwds))[1::2]]
+
+    df3 = pd.DataFrame()
+    df3['Cuves'] = curve_rates
+    df3['Sprd'] = np.round(curve[0::3],1)
+    for i in np.arange(1, len(crvs)):
+        df3[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(curve[i][0], 1) for i in np.arange(len(curve))[1::3]]
+    for j in np.arange(1, len(shift)):
+        df3[shift[j]] = [np.round(curve[i][j-1], 1) for i in np.arange(len(curve))[2::3]]
+
+    df4 = pd.DataFrame()
+    df4['Curves'] = fly_rates
+    df4['Fly'] = np.round(fly[0::3], 1)
+    for i in np.arange(1, len(crvs)):
+        df4[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(fly[i][0], 1) for i in np.arange(len(fly))[1::3]]
+    for j in np.arange(1, len(shift)):
+        df4[shift[j]] = [np.round(fly[i][j - 1], 1) for i in np.arange(len(fly))[2::3]]
+
+    df5 = pd.DataFrame()
+    df5['Months'] = [ql_to_datetime(x_fixing[i]).strftime('%b-%y') for i in np.arange(len(x_fixing))]
+    df5['Barcap'] = [x2_barx[i][0] for i in np.arange(len(x2_barx))]
+    df5['Mkt'] = [x2_mkt[i][0] for i in np.arange(len(x2_mkt))]
+    df5['Chg'] = [ np.round(100*(x2_mkt[i][0]-x2_mkt[i][1]),1) for i in np.arange(len(x2_mkt))]
+
+
+    output_table = pd.concat([df1, df5, df2, df3, df4], axis=1)
+    output_table = output_table.fillna('')
 
     class inf_swap_table_output():
         def __init__(self):
+            self.table = output_table
             self.fixings = fix_mkt
             self.zc = zc
             self.fwds = fwds

@@ -49,18 +49,26 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     t1 = a.rates.copy()
     t = []
 
+#    for i in np.arange(len(offset)):
+#        if  isinstance(offset[i],int) == True:
+#            x1 = c.cal.advance(a.trade_date,offset[i],ql.Days)
+#            if a.ois_trigger == 0:
+#                t = t + [swap_build(sw_tab_index, str(x1.dayOfMonth())+'-'+str(x1.month())+'-'+str(x1.year())  ) ]
+#            else:
+#                t = t + [ois_dc_build(sw_tab_index, str(x1.dayOfMonth())+'-'+str(x1.month())+'-'+str(x1.year())  ) ]
+#        else:
+#            if a.ois_trigger == 0:
+#                t = t + [swap_build(sw_tab_index, offset[i])]
+#            else:
+#                t = t + [ois_dc_build(sw_tab_index, offset[i])]
+
+
     for i in np.arange(len(offset)):
-        if  isinstance(offset[i],int) == True:
-            x1 = c.cal.advance(a.trade_date,offset[i],ql.Days)
-            if a.ois_trigger == 0:
-                t = t + [swap_build(sw_tab_index, str(x1.dayOfMonth())+'-'+str(x1.month())+'-'+str(x1.year())  ) ]
-            else:
-                t = t + [ois_dc_build(sw_tab_index, str(x1.dayOfMonth())+'-'+str(x1.month())+'-'+str(x1.year())  ) ]
+        if a.ois_trigger == 0:
+            t = t + [swap_build(sw_tab_index, offset[i])]
         else:
-            if a.ois_trigger == 0:
-                t = t + [swap_build(sw_tab_index, offset[i])]
-            else:
-                t = t + [ois_dc_build(sw_tab_index, offset[i])]
+            t = t + [ois_dc_build(sw_tab_index, b=offset[i])]
+
 
             
 #    x1 = [c.cal.advance(a.trade_date,offset[i],ql.Days) for i in range(len(offset)) ]
@@ -203,6 +211,7 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     class swap_table_output():
         def __init__(self):
             self.curve = a.curve
+            self.all_curves = [a]+t
             self.ref_date = a.ref_date
             self.trade_date = a.trade_date
             self.dates = trade_dates
@@ -218,14 +227,17 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     return swap_table_output()
 
 
+### testing
+#sofr = ois_dc_build("SOFR_DC",b=0)
+#tab1= swap_table(sofr)
+#tab1.table
 
+#tab1= swap_table2([sofr], outright_rates = [1,2,3,4,5,6,7,8,9,10,12,15,20,25,30,40,50],
+#                  fwd_rates = [(1,1), (2,1), (3,1), (4,1), (2,2), (3,2), (5,5), (10,5), (10,10), (15,15) ],
+#                  curve_rates = [(2,3), (2,5), (2,10), (5,10), (5,30), (10,30)],
+#                  fly_rates = [(2,3,5), (2,5,10), (3,5,7), (5,10,30)])
 
-
-
-
-
-
-
+#tab1.fly
 
 ####################### heatmap for rates, curves
 

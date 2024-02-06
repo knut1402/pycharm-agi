@@ -1,12 +1,12 @@
 ##### inflation historical + fwd 1y plotting
 import matplotlib.pyplot as plt
 
-xt = infl_zc_swap_build('HICPxT', b=0)
-rpi = infl_zc_swap_build('UKRPI', b=0)
-cpi = infl_zc_swap_build('USCPI', b=0)
+xt = infl_zc_swap_build('HICPxT', b=-1)
+rpi = infl_zc_swap_build('UKRPI', b=-1)
+cpi = infl_zc_swap_build('USCPI', b=-1)
 
 ### Define start historic dates and length of fwd projection
-start_dates = [ql.Date(1,6,2010) + ql.Period(int(i),ql.Months) for i in np.arange(200)]
+start_dates = [ql.Date(1,6,2010) + ql.Period(int(i),ql.Months) for i in np.arange(280)]
 
 a1 = [Infl_ZC_Pricer(xt, st_date=start_dates[i], tenor=1, lag = 3, not1 = 10, use_forecast = 0, use_mkt_fixing = 1) for i in np.arange(1,len(start_dates))]
 dates1 = [a1[i].base + ql.Period(12,ql.Months) for i in np.arange(len(a1))]
@@ -24,18 +24,18 @@ dates6 = [ql_to_datetime(dates5[i]) for i in np.arange(len(a3))]
 cpi_rates = [a3[i].zc_rate for i in np.arange(len(a3))]
 
 plt.figure(figsize=(10,8))
-plt.plot(dates2[0:152], xt_rates[0:152],  c = 'navajowhite')
-plt.plot(dates2[151:], xt_rates[151:], label ='EUR HICPxT',  c = 'darkorange')
-plt.plot(dates2[0:152], rpi_rates[0:152],   c = 'lightgreen')
-plt.plot(dates2[151:], rpi_rates[151:], label = 'UK RPI',   c = 'green')
-plt.plot(dates2[0:152], cpi_rates[0:152], c = 'lightsteelblue')
-plt.plot(dates2[151:], cpi_rates[151:], label = 'US CPI', c = 'blue')
+plt.plot(dates2[0:153], xt_rates[0:153],  c = 'navajowhite')
+plt.plot(dates2[152:], xt_rates[152:], label ='EUR HICPxT',  c = 'darkorange')
+plt.plot(dates2[0:153], rpi_rates[0:153],   c = 'lightgreen')
+plt.plot(dates2[152:], rpi_rates[152:], label = 'UK RPI',   c = 'green')
+plt.plot(dates2[0:153], cpi_rates[0:153], c = 'lightsteelblue')
+plt.plot(dates2[152:], cpi_rates[152:], label = 'US CPI', c = 'blue')
 #plt.axvline(x= ql_to_datetime(ql.Date(1,6,2023)), linewidth = 0.7, c = 'black', linestyle = '--')
 plt.axhline(y= 2.0, linewidth = 0.7, c = 'black', linestyle = '--')
 plt.axhline(y= 3.0, linewidth = 0.7, c = 'black', linestyle = '--')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 5.3 ,marker='o', s = 12, c = 'green')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 2.4 ,marker='o', s = 12, c = 'darkorange')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 3.1 ,marker='o', s = 12, c = 'blue')
+plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 5.2 ,marker='o', s = 12, c = 'green')
+plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 2.9 ,marker='o', s = 12, c = 'darkorange')
+plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 3.4 ,marker='o', s = 12, c = 'blue')
 plt.legend()
 #plt.grid(visible=True, linestyle='--', linewidth=0.2)
 plt.ylabel("%", color="black", fontsize=12)
