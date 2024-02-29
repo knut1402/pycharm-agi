@@ -15,8 +15,8 @@ con = pdblp.BCon(debug=False, port=8194, timeout=50000)
 con.start()
 
 from Conventions import FUT_CT,FUT_CT_Q, ccy
-from OIS_DC_BUILD import ois_dc_build
-from Utilities import swap_class
+from OIS_DC_BUILD import ois_dc_build, ois_from_nodes
+from Utilities import *
 
 
 def swap_build(a,b=0):
@@ -79,7 +79,7 @@ def swap_build(a,b=0):
     except:
         depo = con.ref(c.fixing, 'PX_LAST')['value'][0]
     quotes1 = [ ql.SimpleQuote(depo/100) ]
-    helpers = [ ql.DepositRateHelper(ql.QuoteHandle(quotes1[0]),c.fixing_tenor, c.sett_d,c.cal, ql.Following, False, c.floating[1] )]
+    helpers = [ ql.DepositRateHelper(ql.QuoteHandle(quotes1[0]), c.fixing_tenor, c.sett_d, c.cal, ql.Following, False, c.floating[1] )]
     
     ################################ BBG Swap Rates
     
@@ -327,5 +327,77 @@ def swap_build(a,b=0):
 
 
 
+
+def libor_from_nodes(a,ois_hist):
+#    a = usd3m_h.iloc[1000]
+
+    today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+    c = ccy(a['Index'], today)
+    d1 = a.name
+
+    trade_date = ql.Date(int(d1.split('/')[0]), int(d1.split('/')[1]), int(d1.split('/')[2]))
+    ref_date = c.cal.advance(trade_date,2,ql.Days)
+    ref_fix = a['Fixing']
+    tab = a['Table']
+    swap_rates = a['Swap_Rates']
+    swap_rates.columns = ['Tenor','SwapRate']
+    curve_ccy = con.ref(c.bbg_curve,'CRNCY')['value'][0]
+
+    q_dates = [datetime_to_ql(a['Dates'][j]) for j in np.arange(len(a['Dates']))]
+    l_rates = a['Rates']
+
+    libor_curve = ql.MonotonicLogCubicDiscountCurve(q_dates, l_rates, c.floating[1], c.cal)
+    libor_curve.enableExtrapolation()
+
+    if ql_to_datetime(trade_date).strftime('%d/%m/%Y') in  ois_hist.index:
+        dc_curve = ois_from_nodes(  ois_hist.loc[ql_to_datetime(trade_date).strftime('%d/%m/%Y')] , ccy(c.dc_index, today)).curve
+    else:
+        dc_curve = libor_curve
+
+    print(libor_curve.nodes()[0])
+
+    class libor_from_nodes_output():
+        def __init__(self):
+            self.tab = a.Table[['Tenor','Rate']]
+            self.trade_date = trade_date
+            self.ref_date = ref_date
+            self.trade_date = trade_date
+            self.ref_fix = ref_fix
+            self.table = tab
+            self.rates = swap_rates
+            self.curve = (libor_curve,dc_curve)
+            self.nodes = tuple(zip(q_dates, l_rates))
+            self.rates = swap_rates
+            self.table = a.Table
+            self.cal = c.cal
+            self.index = a['Index']
+            self.ois_index = a['Index']
+            self.fixing = c.fixing
+            self.ois_trigger = c.ois_trigger
+            self.ccy = curve_ccy
+            self.bbgplot_tickers = c.bbgplot_tickers
+
+    return libor_from_nodes_output()
+
+
+
+#df_source = pd.read_pickle("./DataLake/GBP_6M_H.pkl")
+#ois_hist = hist['SONIA_DC']
+
+#df_source = pd.read_pickle("./DataLake/EUR_6M_H.pkl")
+#ois_hist = hist['ESTER_DC']
+
+#df_source = pd.read_pickle("./DataLake/USD_3M_H.pkl")
+#ois_hist = hist['SOFR_DC']
+
+#fail = []
+#for i in np.arange(len(df_source)):
+    print(i, df_source.iloc[i].name)
+    a = libor_from_nodes(df_source.iloc[i], ois_hist)
+    if a.rates[a.rates['Tenor'] == '20Y']['SwapRate'].tolist()[0]  == Swap_Pricer([[a, 0, 20]]).rate[0]:
+        print('2y rates match: True')
+    else:
+        print('####################################################################   FALSE')
+        fail.append( [i, df_source.iloc[i].name, abs(100*(a.rates[a.rates['Tenor'] == '20Y']['SwapRate'].tolist()[0] - Swap_Pricer([[a, 0, 20]]).rate[0])) ] )
 
 

@@ -3,6 +3,7 @@ import sys
 import os
 import datetime
 from dateutil.relativedelta import relativedelta
+from scipy import stats
 import panel as pn
 import inspect
 import pandas as pd
@@ -22,7 +23,7 @@ sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProjec
 sys.path.append(os.path.abspath("C:/Users/A00007579/PycharmProjects/pythonProject/DataLake"))
 from Utilities import *
 from Conventions import FUT_CT,FUT_CT_Q, ccy, ccy_infl
-from OIS_DC_BUILD import ois_dc_build
+from OIS_DC_BUILD import ois_dc_build, get_wirp
 from SWAP_BUILD import swap_build
 from SWAP_PRICER import Swap_Pricer, Swap_curve_fwd, quick_swap
 from SWAP_TABLE import swap_table, swap_table2, curve_hmap
@@ -30,7 +31,7 @@ from INF_ZC_BUILD import infl_zc_swap_build, Infl_ZC_Pricer, inf_swap_table
 from BOND_CURVES import bond_curve_build
 from VOL_BUILD import build_vol_surf, build_vol_spline, bond_fut_opt_strat, get_sim_option_px, build_stir_vol_surf, stir_opt_strat
 from PLOT import plt_curve, plt_inf_curve, plt_opt_strat, rates_hm, curve_hm, plt_ois_curve, plot_opt_vol_surf, plt_stir_opt_strat, plotool, ecfc_plot
-from PLOT_BOKEH import plt_ois_curve_bokeh, plt_inf_curve_bokeh, ecfc_plot, plot_tool_bbg
+from PLOT_BOKEH import plt_ois_curve_bokeh, plt_inf_curve_bokeh, ecfc_plot, plot_tool_bbg, plot_wirp, plot_simple_wirp
 from BOND_TABLES import linker_table
 from INFL_CARRY import linker_carry_calc
 
@@ -71,6 +72,7 @@ class SwapMon(param.Parameterized):
         self.curve_input.param.watch(self.update_curve, 'value')
 #        self.date_input.param.watch(self.update_curve, 'value')     ##### otherwise triggers before re-calc offset
         self.offset_date.param.watch(self.update_curve, 'value')
+        self.generic = pn.widgets.Checkbox(name='OIS:#', value=False, styles={'color': 'black', 'font-size': '9pt'}, width=100, height=30, margin=(55, 10, 10, 20))
         self.update_notification = pn.widgets.StaticText(name='Status', value='df not yet updated')
 
         # Curve table setup
@@ -89,6 +91,8 @@ class SwapMon(param.Parameterized):
         self.fwd_table = pn.widgets.Tabulator(self.fwd_data, show_index=False, row_height=30, name='df4',
                                               widths={'x1': 50, 'x2': 50, 'x3': 50, 'x4': 50, 'Fwds': 60, 'Chg': 60}, margin=(10,10,10,15),
                                               stylesheets=[css2], selectable = 'checkbox')
+#        self.fwd_table.style.set_properties(**{'background-color': 'papayawhip', 'color': 'black', 'border-color': 'papayawhip'}, subset=['Fwds', 'Chg'])
+#        self.fwd_table.style.set_table_styles([{'selector': 'td.colFwd', 'props': [('background-color', '#ffffb3')]}])
         self.fwd_table.param.watch(self._update_row, 'selection')
 
         print('now : initiating')
@@ -106,6 +110,12 @@ class SwapMon(param.Parameterized):
         self.curve_tab_plot = pn.Column()
         self.fwd_tab_plot = pn.Column()
         self.multi_plot = pn.Column()
+        self.wirp_plot = pn.Column()
+
+        ## DateRange slider
+        self.date_range_slider = pn.widgets.DateRangeSlider(start = datetime.datetime(2012, 1, 1),end = datetime.datetime.combine( ql_to_datetime(c.cal.advance(today, 1, ql.Years)), datetime.datetime.min.time()) ,
+                                                            value=(datetime.datetime(2021, 1, 1), datetime.datetime.combine( ql_to_datetime(c.cal.advance(today, 1, ql.Years)), datetime.datetime.min.time())),
+                                                            step=30, format = '%b-%y', width = 440, bar_color = '#C3DEEA')
 
         # Function to handle quick date selection
         @pn.depends(self.quick_dates.param.value, watch=True)
@@ -170,7 +180,8 @@ class SwapMon(param.Parameterized):
 #               print(new_df)
                 a1 = [int(new_df['x1'].tolist()), int(new_df['x2'].tolist()), int(new_df['x3'].tolist())]
                 print('a1: ', a1)
-                fig3 = plot_tool_bbg([a1], self.curve)
+                print('start_date_slider:', self.date_range_slider.value[0])
+                fig3 = plot_tool_bbg([a1], self.curve, self.date_range_slider.value[0])
                 self.curve_tab_plot.clear()
                 self.curve_tab_plot.extend([column(*fig3)])
             else:
@@ -179,7 +190,7 @@ class SwapMon(param.Parameterized):
 #               print(new_df)
                 a1 = [int(new_df['x1'].tolist()), int(new_df['x2'].tolist()), int(new_df['x3'].tolist()), int(new_df['x4'].tolist())]
                 print('a1: ',a1)
-                fig2 = plot_tool_bbg([a1], self.curve)
+                fig2 = plot_tool_bbg([a1], self.curve, self.date_range_slider.value[0])
                 self.fwd_tab_plot.clear()
                 self.fwd_tab_plot.extend([column(*fig2)])
         elif len(curve_indices)+len(fwd_indices) > 1:
@@ -200,7 +211,7 @@ class SwapMon(param.Parameterized):
                 a1 = [[int(new_df_1['x1'][i]), int(new_df_1['x2'][i]), int(new_df_1['x3'][i])] for i in curve_indices]
 #                a1 = [[int(new_df_2['x1'][i]), int(new_df_2['x2'][i]), int(new_df_2['x3'][i]),int(new_df_2['x4'][i])] for i in fwd_indices]
             print('a1: ', a1)
-            fig4 = plot_tool_bbg(a1, self.curve, p_dim=[700,400])
+            fig4 = plot_tool_bbg(a1, self.curve, self.date_range_slider.value[0],p_dim=[700,400])
             self.multi_plot.clear()
             self.multi_plot.extend([column(*fig4)])
         else:
@@ -222,14 +233,16 @@ class SwapMon(param.Parameterized):
         calculate_button = pn.widgets.Button(name='Tab-Calc', button_type='primary', on_click=self.calc_callback_fx, width=60, height=40, margin=(32, 15, 5, 5), styles={'color': 'gray', 'font-size': '12pt'})
 
         return pn.Column(
-            pn.Row(self.curve_input, self.quick_dates, self.date_input, self.offset_date, build_button, calculate_button),
-            pn.Row(self.curve_df, pn.Column(self.ivsp_df, self.curve_table,  self.fwd_table, width=450, height=225), pn.Spacer(width=75),
+            pn.Row(self.curve_input, self.quick_dates, self.date_input, self.offset_date, build_button, calculate_button, self.generic),
+            pn.Row(self.curve_df, pn.Column(self.ivsp_df, self.date_range_slider ,self.curve_table,  self.fwd_table, width=450, height=225), pn.Spacer(width=75),
                    pn.Column(pn.Card( self.fwd_tab_plot, title="Fwds   Plot  "),
                              pn.Spacer(height=15),
                              pn.Card( self.curve_tab_plot, title="Curve Plot"),
                              pn.Spacer(height=15),
                              pn.Card(self.multi_plot, title="Multi     Plot   "))),
-            pn.Row(self.curve_plot),
+            pn.Row(self.curve_plot, pn.Spacer(width=50) ,
+                   pn.Column(pn.Spacer(height= 50),
+                             self.wirp_plot)),
             pn.Row(self.update_notification) )
 
     def build_curve(self, event):
@@ -247,8 +260,14 @@ class SwapMon(param.Parameterized):
         self.curve_plot.clear()
         fig1 = plt_ois_curve_bokeh([a3.value], h1=[0, a2.strftime('%d-%m-%Y')],
                                    max_tenor=30, bar_chg = 1, sprd = 0, name = '', fwd_tenor = '1y',int_tenor = '1y',
-                                   built_curve= swp_prc_tab.all_curves, tail = 1, curve_fill = "", p_dim=[800,300])
+                                   built_curve= swp_prc_tab.all_curves, tail = 1, curve_fill = "", p_dim=[750,300])
         self.curve_plot.extend([column(*fig1)])
+
+        self.wirp_plot.clear()
+        stir_dt = get_wirp([[a3.value], [a1, a2]])
+        fig_wirp = plot_simple_wirp(stir_dt, gen = self.generic.value)
+        self.wirp_plot.extend([row(*fig_wirp)])
+
         self.build_table()
         self.fwds_table()
 
@@ -288,35 +307,6 @@ class SwapMon(param.Parameterized):
 
     def view(self):
         return self.create_layout
-
-
-
-
-
-
-
-
-
-
-
-
-
-#    def _update_fwd_row(self, event):
-#        print('self.fwd_table.selection:', self.fwd_table.selection)
-#        fwd_indices = self.fwd_table.selection
-#        all_indices = self.curve_table.selection + self.fwd_table.selection
-#        if len(all_indices) == 1:
-#            new_df = self.fwd_data.iloc[int(fwd_indices[0])]
-#            print(new_df)
-#            a1 = [int(new_df['x1'].tolist()), int(new_df['x2'].tolist()),
-#                  int(new_df['x3'].tolist()), int(new_df['x4'].tolist())]
-#            print(a1)
-#            fig2 = plot_tool_bbg([a1], self.curve)
-#        else:
-#            fig2 = pn.Row()
-#        self.fwd_tab_plot.clear()
-#        self.fwd_tab_plot.extend([column(*fig2)])
-#        return
 
 
 

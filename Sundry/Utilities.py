@@ -50,14 +50,11 @@ def bond_fut_yield2(fut_ticker,fut_px):
 #bond_fut_yield(fut[:4],np.array(strikes)[mask1].tolist())
 #bond_fut_yield('TYM2', [118, 119, 120, 118.5] )
 
-
-
 def bond_fut_yield(fut_ticker, fut_px):
     con = pdblp.BCon(debug=False, port=8194, timeout=50000)
     con.start()
-    
-#    fut_ticker = 'TYM2'
-#    fut_px = np.array(strikes)[mask1].tolist()
+#    fut_ticker = fut[:4]
+#    fut_px = df2['strikes'].tolist()
 
     #bond future
     bond_fut_dets = con.ref(fut_ticker + ' Comdty', ['FUT_CTD_ISIN','FUT_DLV_DT_LAST','FUT_CNVS_FACTOR','CRNCY','PX_LAST'])['value']
@@ -260,7 +257,42 @@ def px_dec_to_opt_frac(a, ft = 64):
     else:
         a3 = a_sign+str(a1)+'-'+a3+str(np.round(abs(a2),1))
     return(a3)
-      
+
+
+def px_frac_to_opt_dec(a, ft=64):
+#    a = '1-16.8'
+#    ft=64
+    if a[0] == '-':
+        a_sign = -1
+        a = a[1:]
+    else:
+        a_sign = +1
+
+    a2 = a.split('-')
+    if len(a2) > 1:
+        a3 = a_sign*(int(a2[0]) + (float(a2[1])/ft))
+    else:
+        a3 = a_sign * float(a2[0]) / ft
+    return a3
+
+def convert_to_64(a):
+### converting 1-02 to 66 / no dedimals involved this is fractional -> fractional; required for plotting opt payoff
+#    a = '1-16.8'
+
+    if a[0] == '-':
+        a_sign = -1
+        a = a[1:]
+    else:
+        a_sign = +1
+
+    a2 = a.split('-')
+    if len(a2) > 1:
+        a3 = a_sign*( (64*int(a2[0])) + float(a2[1]))
+    else:
+        a3 = a_sign * float(a2[0])
+    return a3
+
+
 
 def flat_lst(t):
     flat_list = [item for sublist in t for item in sublist]
@@ -277,10 +309,22 @@ def datetime_to_ql(d):
 
 #### converting datetime string
 def convert_date_format(date_str):
-    date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    try:
+        date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+    except:
+        date_obj = datetime.datetime.strptime(date_str, '%Y/%m/%d %H:%M:%S')
     return date_obj.strftime('%d-%m-%Y')
 
 #### df style map for -ve numbers in red
     def style_negative(v, props=''):
         return props if v < 0 else None
+
+
+### removing certain plots from bokeh charts
+def remove_glyphs(figure, glyph_name_list):
+    renderers = figure.select(dict(type=GlyphRenderer))
+    for r in renderers:
+        if r.name in glyph_name_list:
+            col = r.glyph.y
+            r.data_source.data[col] = [np.nan] * len(r.data_source.data[col])
 

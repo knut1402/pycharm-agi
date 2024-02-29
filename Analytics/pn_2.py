@@ -281,9 +281,7 @@ class SwapMon(param.Parameterized):
     def view(self):
         return self.create_layout
 
-#sofr = ois_dc_build('SOFR_DC', b=0)
-#sofr.bbgplot_tickers
-#Swap_Pricer([[sofr,2,2]]).table
+
 
 class InflSwapMon(param.Parameterized):
     update_flag = param.Boolean(default=False)  # Define update_flag as a param attribute
@@ -414,6 +412,7 @@ class InflSwapMon(param.Parameterized):
         return self.create_layout
 
 
+
 class Swap_Plot(param.Parameterized):
     plot_button = param.Action(lambda x: x.param.trigger('plot_button'), label='Plot')
     def __init__(self):
@@ -482,6 +481,8 @@ class Swap_Plot(param.Parameterized):
 
     def view(self):
             return self.create_layout
+
+
 
 class ECFC(param.Parameterized):
     plot_button = param.Action(lambda x: x.param.trigger('plot_button'), label='Plot')

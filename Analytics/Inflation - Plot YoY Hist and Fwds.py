@@ -5,6 +5,7 @@ xt = infl_zc_swap_build('HICPxT', b=-1)
 rpi = infl_zc_swap_build('UKRPI', b=-1)
 cpi = infl_zc_swap_build('USCPI', b=-1)
 
+
 ### Define start historic dates and length of fwd projection
 start_dates = [ql.Date(1,6,2010) + ql.Period(int(i),ql.Months) for i in np.arange(280)]
 
@@ -23,19 +24,25 @@ dates5 = [a3[i].base + ql.Period(12,ql.Months) for i in np.arange(len(a3))]
 dates6 = [ql_to_datetime(dates5[i]) for i in np.arange(len(a3))]
 cpi_rates = [a3[i].zc_rate for i in np.arange(len(a3))]
 
+#dates6[152:163]
+#cpi_rates[152:163]
+#Infl_ZC_Pricer(cpi, st_date=ql.Date(1,4,2023), tenor=1, lag = 3, not1 = 10, use_forecast = 1, use_mkt_fixing = 0).base
+#cpi.fixing_hist[-12:]
+
+
 plt.figure(figsize=(10,8))
-plt.plot(dates2[0:153], xt_rates[0:153],  c = 'navajowhite')
-plt.plot(dates2[152:], xt_rates[152:], label ='EUR HICPxT',  c = 'darkorange')
-plt.plot(dates2[0:153], rpi_rates[0:153],   c = 'lightgreen')
-plt.plot(dates2[152:], rpi_rates[152:], label = 'UK RPI',   c = 'green')
-plt.plot(dates2[0:153], cpi_rates[0:153], c = 'lightsteelblue')
-plt.plot(dates2[152:], cpi_rates[152:], label = 'US CPI', c = 'blue')
+plt.plot(dates2[0:154], xt_rates[0:154],  c = 'navajowhite')
+plt.plot(dates2[153:], xt_rates[153:], label ='EUR HICPxT',  c = 'darkorange')
+plt.plot(dates2[0:154], rpi_rates[0:154],   c = 'lightgreen')
+plt.plot(dates2[153:], rpi_rates[153:], label = 'UK RPI',   c = 'green')
+plt.plot(dates2[0:154], cpi_rates[0:154], c = 'lightsteelblue')
+plt.plot(dates2[153:], cpi_rates[153:], label = 'US CPI', c = 'blue')
 #plt.axvline(x= ql_to_datetime(ql.Date(1,6,2023)), linewidth = 0.7, c = 'black', linestyle = '--')
 plt.axhline(y= 2.0, linewidth = 0.7, c = 'black', linestyle = '--')
 plt.axhline(y= 3.0, linewidth = 0.7, c = 'black', linestyle = '--')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 5.2 ,marker='o', s = 12, c = 'green')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 2.9 ,marker='o', s = 12, c = 'darkorange')
-plt.scatter(ql_to_datetime(ql.Date(1,11,2023)), 3.4 ,marker='o', s = 12, c = 'blue')
+plt.scatter(ql_to_datetime(ql.Date(1,1,2024)), 4.92 ,marker='o', s = 12, c = 'green')
+plt.scatter(ql_to_datetime(ql.Date(1,1,2024)), 2.8 ,marker='o', s = 12, c = 'darkorange')
+plt.scatter(ql_to_datetime(ql.Date(1,1,2024)), 3.1 ,marker='o', s = 12, c = 'blue')
 plt.legend()
 #plt.grid(visible=True, linestyle='--', linewidth=0.2)
 plt.ylabel("%", color="black", fontsize=12)
@@ -45,7 +52,7 @@ plt.title('Market Implied Inflation Expectations', c = 'darkblue')
 #plt.yticks(fontsize=7.5)
 plt.show()
 
-dates2[151]
+dates2[153]
 
 
 ####### RPI mkt vs barcap

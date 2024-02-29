@@ -14,7 +14,7 @@ con = pdblp.BCon(debug=False, port=8194, timeout=50000)
 con.start()
 from Conventions import FUT_CT,FUT_CT_Q, ccy
 from Utilities import *
-from OIS_DC_BUILD import ois_dc_build
+from OIS_DC_BUILD import ois_dc_build, ois_from_nodes
 
 
 def Swap_Pricer(a, fixed_leg_freq = 0):
@@ -27,11 +27,19 @@ def Swap_Pricer(a, fixed_leg_freq = 0):
     output_start_date = []
     output_end_date = []
 
-#    a = [[s2[-1],2,2]]
+#    s1 = ois_dc_build('SOFR_DC', b=0)
+#    s3 = swap_build('CAD_3M', b=0)
+#    s2 = ois_dc_build('SOFR_DC', b='10-01-2024')
+#    s3 = ois_dc_build('SONIA_DC', b='10-01-2024')
+
+#    a = [[s2,'29-03-2024','15-06-2030']]
 #    a = [[usd3m,0,2],[usd3m,0,3]]
-#    a = [[sonia,0,10]]
+#    a = [[s1,0,10]]
+#    a = [[ libor_from_nodes( gbb6m_h.iloc[1] , ccy('GBP_6M', today)) ,0,2]]
+#    a = [[libor_from_nodes(df_source.iloc[2], ois_hist),0,2]]
 
     for k in range(len(a)):
+#        k=0
         ql.Settings.instance().evaluationDate = a[k][0].trade_date
         
         n = 10000000.0
@@ -120,9 +128,9 @@ def Swap_Pricer(a, fixed_leg_freq = 0):
         discount_curve = ql.RelinkableYieldTermStructureHandle(dc)
         c_handle = ql.RelinkableYieldTermStructureHandle(curve)
         
-        if (t.index_custom == 0) and (a[k][0].ois_trigger == 0):
+        if (t.index_custom == 0) and (a[k][0].ois_trigger == 0):    ##### uses index_custom == 1 for USD_3M
             index = t.index(t.fixing_tenor,c_handle)
-        else: 
+        else:
             index =  ql.IborIndex(t.fixing, t.fixing_tenor, t.sett_d, t.curncy, t.cal, ql.ModifiedFollowing, True, t.floating[1], c_handle)
 
         swap = ql.VanillaSwap(ql.VanillaSwap.Payer, sw.n,fixed_schedule,sw.rate_x/100, t.fixed[1],floating_schedule, index,0.0, t.floating[1])
@@ -259,6 +267,8 @@ def Swap_curve_fwd(crv, inst, ratio, end_fwd_start = 10, interval = 1, fixed_leg
         
         if (t.index_custom == 0) and (crv.ois_trigger == 0):
             index = t.index(t.fixing_tenor,c_handle)
+#            print('.new')
+#            index = ql.IborIndex(t.fixing, t.fixing_tenor, t.sett_d, t.curncy, t.cal, ql.ModifiedFollowing, True, t.floating)
         else: 
             index =  ql.IborIndex(t.fixing, t.fixing_tenor, t.sett_d, t.curncy, t.cal, ql.ModifiedFollowing, True, t.floating[1], c_handle)
             
@@ -286,10 +296,14 @@ def Swap_curve_fwd(crv, inst, ratio, end_fwd_start = 10, interval = 1, fixed_leg
 
     
 
-def quick_swap(a, u1=ql.Years, u2=ql.Years, spread =0, fly = 0):
+def quick_swap(a, u1=ql.Years, u2=ql.Years, spread =0, fly = 0):    ### a lot more testing required !!! ####
+#    a = [[libor_from_nodes(hist['USD_3M'].iloc[1000], hist['SOFR_DC']), 1, 1]]
+    a = [[ ois_dc_build('SOFR_DC'), 1, 1]]
+
     ''' Quick Swap only works when actual dates do not need to be specified. settlement_days not specified currently '''
     output_rate=[]
     for k in np.arange(len(a)):
+        k=0
         ql.Settings.instance().evaluationDate = a[k][0].trade_date
         termStructure = ql.YieldTermStructureHandle(a[k][0].curve)
         index = a[k][0].index(termStructure)
@@ -304,9 +318,4 @@ def quick_swap(a, u1=ql.Years, u2=ql.Years, spread =0, fly = 0):
     if fly == 1:
         output_rate = [np.round(np.dot(np.array(output_rate), np.array([-100, 200, -100])), 3)]
     return output_rate
-
-
-
-
-
 

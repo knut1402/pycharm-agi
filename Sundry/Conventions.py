@@ -5,8 +5,7 @@
 import pandas as pd
 import numpy as np
 import datetime
-# import tia
-# from tia.bbg import LocalTerminal as LT
+import os
 import pdblp
 import runpy
 import QuantLib as ql
@@ -15,7 +14,7 @@ import matplotlib.pyplot as plt
 
 con = pdblp.BCon(debug=False, port=8194, timeout=5000)
 con.start()
-
+os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
 
 ## Futures Contract Table
 def FUT_CT(eval_date):
@@ -115,17 +114,18 @@ def FUT_CT_Q(eval_date):
 
     return FUT_M
 
-
 ## conventions
 
-
 def ccy(a, eval_date):
+    os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
     if a == "USD_3M":
         ois_trigger = 0
+        batch_trigger = 1
         curncy = ql.USDCurrency()
         fixing = "US0003M Index"
         fixing_tenor = ql.Period(3, ql.Months)
         bbg_curve = "YCSW0023 INDEX"
+        bbgplot_curve_tickers = ['USSW', 'S0025FS', 'EESF']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -160,16 +160,18 @@ def ccy(a, eval_date):
         fixed_dcc2 = ql.ModifiedFollowing
         floating_leg = ql.Period(3, ql.Months)
         floating_acc = ql.Actual360()
-        custom_index_trigger = 0
+        custom_index_trigger = 1
         index = ql.USDLibor
         index_a = index(ql.Period(3, ql.Months))
         calendar = ql.UnitedStates(ql.UnitedStates.FederalReserve)
     elif a == "USD_6M":
         ois_trigger = 0
+        batch_trigger = 1
         fixing = "US0006M Index"
         curncy = ql.USDCurrency()
         fixing_tenor = ql.Period(6, ql.Months)
         bbg_curve = "YCSW0051 INDEX"
+        bbgplot_curve_tickers = ['USSW', 'S0051FS', 'EESF']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -202,13 +204,15 @@ def ccy(a, eval_date):
         custom_index_trigger = 0
         index = ql.USDLibor
         index_a = index(ql.Period(6, ql.Months))
-        calendar = ql.UnitedStates(ql.UnitedStates.FederalReserve)
+        calendar = ql.UnitedStates(ql.UnitedStates.Settlement)
     elif a == "EUR_6M":
         ois_trigger = 0
+        batch_trigger = 1
         curncy = ql.EURCurrency()
         fixing = "EUR006M Index"
         fixing_tenor = ql.Period(6, ql.Months)
         bbg_curve = "YCSW0045 INDEX"
+        bbgplot_curve_tickers = ['EUSW', 'S0045FS', 'USSOSR']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -248,6 +252,7 @@ def ccy(a, eval_date):
         fixing = "EUR003M Index"
         fixing_tenor = ql.Period(3, ql.Months)
         bbg_curve = "YCSW0201 INDEX"
+        bbgplot_curve_tickers = ['EUSW', 'S0201FS', 'EESF']
         start_swap = "3Y"  ##################### we need to amend this to start at 2Y
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -288,10 +293,12 @@ def ccy(a, eval_date):
         calendar = ql.TARGET()
     elif a == "GBP_6M":
         ois_trigger = 0
+        batch_trigger = 1
         curncy = ql.GBPCurrency()
         fixing = "BP0006M Index"
         fixing_tenor = ql.Period(6, ql.Months)
         bbg_curve = "YCSW0022 INDEX"
+        bbgplot_curve_tickers = ['BPSW', 'S0022FS', 'GPSF']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -327,6 +334,7 @@ def ccy(a, eval_date):
         fixing = "BP0003M Index"
         fixing_tenor = ql.Period(3, ql.Months)
         bbg_curve = "YCSW0222 INDEX"
+        bbgplot_curve_tickers = ['BPSW', 'S0222FS', 'GPSF']
         start_swap = "3Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -501,10 +509,12 @@ def ccy(a, eval_date):
         calendar = ql.Japan()
     elif a == "AUD_6M":
         ois_trigger = 0
+        batch_trigger = 0
         curncy = ql.AUDCurrency()
         fixing = "BBSW6M Index"
         fixing_tenor = ql.Period(6, ql.Months)
         bbg_curve = "YCSW0302 INDEX"
+        bbgplot_curve_tickers = ['ADSWAP', 'S0302FS']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -554,10 +564,12 @@ def ccy(a, eval_date):
         calendar = ql.Australia()
     elif a == "AUD_3M":
         ois_trigger = 0
+        batch_trigger = 0
         curncy = ql.AUDCurrency()
         fixing = "BBSW3M Index"
         fixing_tenor = ql.Period(3, ql.Months)
         bbg_curve = "YCSW0303 INDEX"
+        bbgplot_curve_tickers = ['ADSWAP', 'S0303FS']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -601,10 +613,12 @@ def ccy(a, eval_date):
         calendar = ql.Australia()
     elif a == "CAD_3M":
         ois_trigger = 0
+        batch_trigger = 0
         curncy = ql.CADCurrency()
         fixing = "CDOR03 Index"
         fixing_tenor = ql.Period(3, ql.Months)
         bbg_curve = "YCSW0004 INDEX"
+        bbgplot_curve_tickers = ['CDSW', 'S0004FS', 'CDSF']
         start_swap = "2Y"
         add_tenors = pd.DataFrame()
         add_conv_corr = pd.DataFrame()
@@ -746,9 +760,7 @@ def ccy(a, eval_date):
             ql.Actual365Fixed(),
         )
         calendar = ql.SouthKorea()
-    elif (
-        a == "SEK_3M"
-    ):  ##################### Haveto convert 3m FRAs to Futures equivalent
+    elif a == "SEK_3M":  ##################### Haveto convert 3m FRAs to Futures equivalent
         ois_trigger = 0
         curncy = ql.SEKCurrency()
         fixing = "STIB3M Index"
@@ -1372,7 +1384,6 @@ def ccy(a, eval_date):
             ql.ActualActual(ql.ActualActual.ISDA),
         )
         calendar = ql.Russia()
-
     elif a == "MXN_TIIE":
         ois_trigger = 0
         curncy = ql.MXNCurrency()
@@ -1419,6 +1430,7 @@ def ccy(a, eval_date):
 
     elif a == "EONIA_DC":
         ois_trigger = 1
+        batch_trigger = 0
         curncy = ql.EURCurrency()
         fixing = "EONIA Index"
         fixing_tenor = ql.Period(1, ql.Days)
@@ -1440,11 +1452,15 @@ def ccy(a, eval_date):
         eoy = -15.0 / 3600000
     elif a == "ESTER_DC":
         ois_trigger = 1
+        batch_trigger = 1
         curncy = ql.EURCurrency()
+        base_ticker = 'EURR002W Index'
         fixing = "ESTRON Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0514 INDEX"
-        bbgplot_curve_tickers = ['EESWE', 'S0514FS']
+        bbgplot_curve_tickers = ['EESWE', 'S0514FS','EESF']
+        ois_contrib = ['TRSO',15]
+        ois_meet_hist = pd.read_pickle("./DataLake/ESTER_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 2
         fixed_leg = ql.Period(1, ql.Years)
@@ -1464,14 +1480,17 @@ def ccy(a, eval_date):
         eom = -1.0 / 3600000
         eoq = -2.0 / 3600000
         eoy = -15.0 / 3600000
-
     elif a == "SOFR_DC":
         ois_trigger = 1
+        batch_trigger = 1
         curncy = ql.USDCurrency()
+        base_ticker = 'FDTR Index'
         fixing = "SOFRRATE Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0490 INDEX"
-        bbgplot_curve_tickers = ['USOSFR', 'S0490FS']
+        bbgplot_curve_tickers = ['USOSFR', 'S0490FS', 'USSOSR']
+        ois_contrib = ['TRSO', 16]
+        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 2
         fixed_leg = ql.Period(1, ql.Years)
@@ -1489,13 +1508,17 @@ def ccy(a, eval_date):
         eom = 0.0 / 3600000
         eoq = 0.0 / 3600000
         eoy = 0.0 / 3600000
-
     elif a == "FED_DC":
         ois_trigger = 1
+        batch_trigger = 0
         curncy = ql.USDCurrency()
+        base_ticker = 'FDTR Index'
         fixing = "FEDL01 Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0042 INDEX"
+        bbgplot_curve_tickers = ['USSO', 'S0042FS', 'USSOSR']
+        ois_contrib = ['TRSO', 16]
+        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         add_tenors["value"] = [
             "USSO15 Curncy",
@@ -1520,11 +1543,15 @@ def ccy(a, eval_date):
         eoy = -10.0 / 3600000
     elif a == "SONIA_DC":
         ois_trigger = 1
+        batch_trigger = 1
         curncy = ql.GBPCurrency()
+        base_ticker = 'UKBRBASE Index'
         fixing = "SONIO/N Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0141 INDEX"
-        bbgplot_curve_tickers = ['BPSWS', 'S0141FS']
+        bbgplot_curve_tickers = ['BPSWS', 'S0141FS', 'GPSF']
+        ois_contrib = ['TRUK',15]
+        ois_meet_hist = pd.read_pickle("./DataLake/SONIA_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 0
         fixed_leg = ql.Period(1, ql.Years)
@@ -1542,10 +1569,15 @@ def ccy(a, eval_date):
         eoy = -0.25 / 3600000
     elif a == "AONIA_DC":
         ois_trigger = 1
+        batch_trigger = 0
         curncy = ql.AUDCurrency()
+        base_ticker = 'RBATCTR Index'
         fixing = "RBACOR Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0159 INDEX"
+        bbgplot_curve_tickers = ['ADSO', 'S0159FS', 'ADSF1A']
+        ois_contrib = 'BLC'
+        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 1
         fixed_leg = ql.Period(1, ql.Years)
@@ -1592,10 +1624,15 @@ def ccy(a, eval_date):
         eoy = -10.0 / 3600000
     elif a == "CAD_OIS_DC":
         ois_trigger = 1
+        batch_trigger = 0
         curncy = ql.CADCurrency()
+        base_ticker = 'CABROVER Index'
         fixing = "CAONREPO Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0147 INDEX"
+        bbgplot_curve_tickers = ['CDSO', 'S0147FS', 'CDSF']
+        ois_contrib = 'BLC'
+        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         add_tenors["value"] = [
             "CDSO7 Curncy",
@@ -1625,7 +1662,6 @@ def ccy(a, eval_date):
         eom = -1.0 / 3600000
         eoq = -1.0 / 3600000
         eoy = -10.0 / 3600000
-
     elif a == "CHF_OIS_DC":
         ois_trigger = 1
         curncy = ql.CHFCurrency()
@@ -1676,7 +1712,6 @@ def ccy(a, eval_date):
         eom = -1.0 / 3600000
         eoq = -1.0 / 3600000
         eoy = -10.0 / 3600000
-
     elif a == "TONAR_DC":
         ois_trigger = 1
         curncy = ql.JPYCurrency()
@@ -1772,6 +1807,7 @@ def ccy(a, eval_date):
     class dict:
         def __init__(self):
             self.ois_trigger = ois_trigger
+            self.batch_trigger = batch_trigger
             self.fixing = fixing
             self.fixing_tenor = fixing_tenor
             self.bbg_curve = bbg_curve
@@ -1790,6 +1826,9 @@ def ccy(a, eval_date):
                 self.eoy = eoy
                 self.fixed = (fixed_leg, fixed_acc, fixed_freq)
                 self.floating = (floating_leg, floating_acc)
+                self.base_ticker = base_ticker
+                self.contrib = ois_contrib
+                self.ois_meet_hist = ois_meet_hist
 
             else:
                 self.dc_index = dc_index
@@ -1798,12 +1837,21 @@ def ccy(a, eval_date):
                 self.add_conv_corr = add_conv_corr
                 self.add_inst = add_inst
                 self.start_swap = start_swap
-
     return dict()
+
+## history
+hist = dict([(key, []) for key in ['SOFR_DC', 'SONIA_DC', 'ESTER_DC', 'USD_3M','GBP_6M', 'EUR_6M']])
+hist['SOFR_DC'] = pd.read_pickle("./DataLake/SOFR_H.pkl")
+hist['SONIA_DC'] = pd.read_pickle("./DataLake/SONIA_H.pkl")
+hist['ESTER_DC'] = pd.read_pickle("./DataLake/ESTER_H.pkl")
+hist['USD_3M'] = pd.read_pickle("./DataLake/USD_3M_H.pkl")
+hist['EUR_6M'] = pd.read_pickle("./DataLake/EUR_6M_H.pkl")
+hist['GBP_6M'] = pd.read_pickle("./DataLake/GBP_6M_H.pkl")
+
+
 
 
 ## inflation curve conventions
-
 
 def ccy_infl(a, eval_date):
     if a == "HICPxT":

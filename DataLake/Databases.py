@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 from Conventions import FUT_CT, ccy, ccy_infl
 
+
 con = pdblp.BCon(debug=False, port=8194, timeout=50000)
 con.start()
 
@@ -20,7 +21,7 @@ os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
 os.getcwd()
 
 ### HICPxT
-a = 'EUR_3M'
+a = 'ESTER_DC'
 b=0
 today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
 c = ccy(a,today)
@@ -66,11 +67,12 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [123.14, 123.77, 124.95, 125.6, 125.79, 126.01, 125.82]
+forecast_index_hist['index'] = [123.18, 123.85, 125.02, 125.66, 125.85, 126.07, 125.88]
 #### combine fixings:
 #inf_index_hist = inf_index_hist.append(forecast_index_hist, ignore_index = True)
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database
+os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
 inf_index_hist.to_pickle('HICPxT_hist.pkl')
 
 ### FRCPI
@@ -125,11 +127,12 @@ forecast_index_hist['index'] = [117.46, 117.71, 117.82, 118.24, 118.15, 118.64]
 #### combine fixings:
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database
+os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
 inf_index_hist.to_pickle('FRCPI_hist.pkl')
 
 
 ### UKRPI
-a = 'GBP_6M'
+a = 'SONIA_DC'
 b=0
 today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
 c = ccy(a,today)
@@ -176,15 +179,16 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [379.1, 381.5, 382.9, 384.3, 385.5, 386.3, 385.7 ]
+forecast_index_hist['index'] = [380.8, 382.3, 382.2, 383.6, 384.6, 383.0, 384.2 ]
 #### combine fixings:
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database
+os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
 inf_index_hist.to_pickle('UKRPI_hist.pkl')
 
 
 ### USCPI
-a = 'USD_3M'
+a = 'SOFR_DC'
 b=0
 today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
 c = ccy(a,today)
@@ -230,11 +234,11 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [307.87, 309.558, 310.818, 311.578, 311.938, 313.018, 313.238, 313.658, 314.008 ]
+forecast_index_hist['index'] = [310.28, 311.72, 312.57, 312.98, 313.87, 314.06, 314.35, 314.68, 314.55 ]
 #### combine fixings:
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database
-
+os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
 inf_index_hist.to_pickle('USCPI_hist.pkl')
 
 

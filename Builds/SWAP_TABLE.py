@@ -19,6 +19,12 @@ from OIS_DC_BUILD import ois_dc_build
 from SWAP_PRICER import Swap_Pricer, quick_swap
 from Utilities import *
 
+#sofr_live = ois_dc_build('SONIA_DC', b=0)
+#sofr_yest = ois_dc_build('SONIA_DC', b='16-02-2024')
+##tb1 = swap_table(sofr_live, offset = ['16-02-2024'])
+#sofr_live.tab
+#sofr_yest.tab
+#tb1.table
 
 def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     
@@ -33,10 +39,10 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
                        rates, fwds, sprds, flys combined as list
                        fwd curve sprds / flys combines as  fwdcurve table      """
     
-#    a = sofr
+#    a = sofr_live
 #    a = ester
 #    offset = [-1, -5]
-#    offset = ['20-12-2021', -10, '04-01-2021']
+#    offset = ['16-02-2024']
     
     today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
     if a.ois_trigger == 0:
@@ -70,7 +76,6 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
             t = t + [ois_dc_build(sw_tab_index, b=offset[i])]
 
 
-            
 #    x1 = [c.cal.advance(a.trade_date,offset[i],ql.Days) for i in range(len(offset)) ]
         
     ################################### make offsets === equal dates as well !!  --- how for heatmap and swap table ???
@@ -133,9 +138,13 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     calc_flys['Rate'] =  a3[0:]
     for i in range(len(offset)):
         calc_flys[chg[i]] =  calc_flys['Rate'] - a31[i][0:] 
-    
+
+    #### calc changes in par swap rates
     for i in range(len(offset)):
-        t1[chg[i]] = np.round(100*(t1['SwapRate']- t[i].rates['SwapRate']),1)
+        tenors = [ int(a.rates['Tenor'].tolist()[i][:-1]) for i in np.arange(len(a.rates))]
+        t1_swap_recalc = pd.Series([Swap_Pricer([[t[i], 0, j]]).rate[0] for j in tenors])
+        t1[chg[i]] = np.round(100 * (t1['SwapRate'] - t1_swap_recalc), 1)
+#        t1[chg[i]] = np.round(100*(t1['SwapRate']- t[i].rates['SwapRate']),1)   #### this only works if tenors are the same for both (all) dates
     
     list1 = pd.concat([t1, calc_fwds, calc_sprds, calc_flys])
     output_table = pd.concat([t1, calc_fwds, calc_sprds, calc_flys], axis =1)
@@ -158,9 +167,8 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     output_table = output_table.fillna('')
 
     #output_table
-     
 ####################  Fwd Roll Table
-    
+
     c1 = (sw_tab_index).split('_')[0].lower()
     #shift = [0,'1M','3M','6M',1]
     
@@ -200,14 +208,12 @@ def swap_table(a, offset = [-1], shift = [0,'1M','3M','6M',1]):
     
     for i in range(len(shift)):
         flyfwd[shift[i]] = [Swap_Pricer(a5[i][j][1]).fly for j in range(n2)]
-    
     flyfwd.index = [a5[0][i][0] for i in range(n2)]   
     
     output_fwdcurve = pd.concat([sprdfwd,flyfwd])
         
     
     #output_curve
- 
     class swap_table_output():
         def __init__(self):
             self.curve = a.curve
