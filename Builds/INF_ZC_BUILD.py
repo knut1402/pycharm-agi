@@ -38,14 +38,16 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
 
 #    a = 'UKRPI'
 #    a = 'HICPxT'
-#    b=-1
+#    b='18-10-2023'
 #    base_month_offset=0
-    
+
+    time1= time.time()
     today = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)
     os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
 #    print(os.getcwd())
     c = ccy_infl(a,today)
-    
+    prints = pd.Series([datetime.datetime(int(c.print_dates[i][0:4]), int(c.print_dates[i][5:7]), int(c.print_dates[i][8:10])) for i in range(len(c.print_dates))])
+
     dc_curve = ois_dc_build(c.dc_curve, b)
     
     #### date handling for hist 
@@ -81,21 +83,31 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
     bbg_t = str(ref_date.year())+m0+d0
     bbg_t_1 = str(ref_date.year())+m1+d1
 
+    dated_last_print = prints[datetime.datetime(ref_date.year(),ref_date.month(),ref_date.dayOfMonth()) >= prints].tolist()[-1].date()
+    dated_last_fix = c.cal.advance( datetime_to_ql(dated_last_print), ql.Period('-1M') )
+    dated_last_fix = ql.Date(1, dated_last_fix.month(),  dated_last_fix.year() )
+    dated_next_fix = c.cal.advance(dated_last_fix, ql.Period('1M'))
+    dated_next_fix = ql.Date(1, dated_next_fix.month(),  dated_next_fix.year() )
+
+    time2= time.time()
     ### get historical data
     inf_index_hist = c.fixing_hist
     ### get seasonality
     inf_seas = c.seas
-    
+
+    time3= time.time()
 
     ### get inflation swap data
     inf_tab = pd.DataFrame(columns=['ticker','maturity','px','index_eod','index','mom'])
     inf_tab['ticker'] = c.ticker
-    for i in np.arange(len(c.ticker)):
-        inf_tab['maturity'][i] = con.ref(c.ticker[i], 'SECURITY_TENOR_TWO_RT')['value'].tolist()[0]
-        inf_tab['px'][i] = con.bdh(c.ticker[i], 'PX_LAST',bbg_t,bbg_t, longdata=True)['value'][0]
+    inf_tab['maturity'] = [inf_tab['ticker'][i].split(' ')[0][len(inf_tab['ticker'][0].split(' ')[0])-1:]+'Y' for i in np.arange(len(inf_tab))]
+    inf_tab['px'] = con.bdh(c.ticker, 'PX_LAST', bbg_t, bbg_t, longdata=True).set_index('ticker').loc[c.ticker]['value'].tolist()
+
+    if a == 'USCPI':   #### adding a 31y point for shift fwd calculations
+        inf_tab.loc[len(inf_tab)]  =  ['USSWIT31 Curncy', '31Y', inf_tab['px'].iloc[-1], np.NaN, np.NaN, np.NaN]
 
 
-
+    time4 = time.time()
     ### set base index + sort seasonality vector to start by base month+1
     base_month = c.base_month + ql.Period(str(base_month_offset)+'M')
     inf_tab['index_eod'] = [base_month + ql.Period(inf_tab['maturity'][i]) for i in np.arange(len(inf_tab))]
@@ -108,21 +120,23 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
     jig_seas['months'] = inf_seas[base_month.month():]['months'].tolist()+inf_seas[:base_month.month()]['months'].tolist()
     jig_seas['seas'] = inf_seas[base_month.month():]['seas'].tolist()+inf_seas[:base_month.month()]['seas'].tolist()
 
-
+    time5= time.time()
     ### output inflation index projection
     inf_tab['index'] = [base_index*(1+(0.01*inf_tab['px'][i]))**(int(inf_tab['maturity'][i][:-1])) for i in np.arange(len(inf_tab))]
     
     ###### Dealing with fixings already published ====== ZC 1y point
-    st_date = c.last_fix_month
+##    st_date = c.last_fix_month       ##### does not work for dated pricng #####  changed in y1_trend below ######
+    st_date = dated_last_fix
+
     st_index = c.fixing_hist[c.fixing_hist['months'] == st_date]['index'].tolist()[0]
-    y1_trend = np.floor((inf_tab['index_eod'][0] - c.last_fix_month)/30)
-    inf_tab['mom'][0] = 100*((inf_tab['index'][0] / st_index)**(1/ y1_trend )-1)
-    
+    y1_trend = np.floor((inf_tab['index_eod'][0] - dated_last_fix)/30)
+    inf_tab.loc[0,'mom'] = 100*((inf_tab['index'][0] / st_index)**(1/ y1_trend )-1)
+
     st_date = inf_tab['index_eod'][0]
     st_index = inf_tab['index'][0]
     
     for i in np.arange(len(inf_tab))[1:]:
-        inf_tab['mom'][i] = 100*((inf_tab['index'][i] / st_index)**(1/(np.floor((inf_tab['index_eod'][i] - st_date)/365)*12))-1)
+        inf_tab.loc[i,'mom'] = 100*((inf_tab['index'][i] / st_index)**(1/(np.floor((inf_tab['index_eod'][i] - st_date)/365)*12))-1)
         st_index = inf_tab['index'][i]
         st_date = inf_tab['index_eod'][i]
 
@@ -131,7 +145,7 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
     inf_index_proj['months'] = [schedule_2[i] for i in range(len(schedule_2))]
     
     fixed_fixings = 12 - int(y1_trend)
-    
+    time6= time.time()
     if fixed_fixings > 0:    ###### what if base month is last fixings !!!
         for j in np.arange(fixed_fixings):
             inf_index_proj['index_trend'][j] = c.fixing_hist[c.fixing_hist['months']  == inf_index_proj['months'][j]]['index'].tolist()[0]
@@ -150,8 +164,9 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
             inf_index_proj['index_trend'][j] = st_index*(1+(inf_tab['mom'][0]/100))
             inf_index_proj['index'][j] = inf_index_proj['index_trend'][j]*(1+ (np.sum(jig_seas['seas'][:(j%12 + 1)])/100))
             st_index = inf_index_proj['index_trend'][j]
-            
-    
+
+
+    time7 = time.time()
     ####### Dealding with  > 1y ZC fixings
     i = 0
     st_index = inf_tab['index'][0]
@@ -163,34 +178,68 @@ def infl_zc_swap_build(a,b=0, base_month_offset=0):
         inf_index_proj['index_trend'][j] = st_index*(1+(inf_tab['mom'][i]/100))
         inf_index_proj['index'][j] = inf_index_proj['index_trend'][j]*(1+ (np.sum(jig_seas['seas'][:(j%12 + 1)])/100))
         st_index = inf_index_proj['index_trend'][j]
-    
+
+    ################### ENFORCE SANITY CHECK
+    par_zc_calc = inf_index_proj[inf_index_proj['months'].isin(inf_tab['index_eod'].tolist())]
+    error_size = np.sum(np.abs(np.array(par_zc_calc['index_trend']) - np.array(inf_tab['index'])) +
+                        np.abs(np.array(par_zc_calc['index']) - np.array(inf_tab['index'])) +
+                        np.abs(np.array(par_zc_calc['index']) - np.array(par_zc_calc['index_trend'])))
+    if error_size > 0.0001:
+        print("nodes dont reprice:")
+        par_zc_calc = par_zc_calc.reset_index(drop=True)
+        par_zc_calc['zc_feed'] = inf_tab['index']
+        print(par_zc_calc)
+
+
+    time8 = time.time()
     ###### defining different curves
     ### 1. simple - seasonally defined
     cutoff = np.where(inf_index_proj['months'] == inf_index_hist['months'].iloc[-1])[0][0]
     prj_inf_fixings = inf_index_hist[:-cutoff - 1]
-    inf_fixings1 = prj_inf_fixings.append(inf_index_proj, ignore_index=True)
+#    inf_fixings1 = prj_inf_fixings.append(inf_index_proj, ignore_index=True)
+    inf_fixings1 = pd.concat([prj_inf_fixings, inf_index_proj], ignore_index=True)    ##### wrong = still using fwd KNOWN fixings when pricing dated curves !!!! #####
+
+
     ### using bank forecast
     prj_inf_fixings = inf_index_proj[cutoff + 1:]
-    inf_fixings2 = inf_index_hist.append(prj_inf_fixings, ignore_index=True)
+#    inf_fixings2 = inf_index_hist.append(prj_inf_fixings, ignore_index=True)
+    inf_fixings2 = pd.concat([inf_index_hist, prj_inf_fixings], ignore_index=True)    ##### wrong = still using fwd KNOWN fixings when pricing dated curves !!!! #####
+    time9 = time.time()
+
     ### using BGC market fixings
     if c.fix_ticker[0] != 'none':
         inf_fixings3 = inf_index_proj
-        for i in np.arange(fixed_fixings, 11):
-            m2 = inf_fixings3.iloc[i]['months'].month()
-            ticker1 = c.fix_ticker[0] + str(m2) + c.fix_ticker[1]
-            y1 = con.bdh(ticker1, 'PX_LAST', bbg_t, bbg_t, longdata=True)['value'][0] / 100
-            b1 = list(inf_index_hist[inf_index_hist['months'] == (inf_fixings3.iloc[i]['months'] - ql.Period('1Y'))]['index'])[0]
-            inf_fixings3.at[i, "index"] = b1 * (1 + (y1 / 100))
-#            print(m2)
-#            print( b1 * (1 + (y1 / 100)))
-#            print(inf_fixings3.iloc[i]['index'])
+        start_fix_month = inf_fixings3['months'].tolist().index(dated_next_fix)
+
+        if a == 'USCPI':
+            fixs_order = [c.fix_ticker[0] + ql_to_datetime(inf_fixings3.iloc[j]['months']).strftime('%b').upper() + c.fix_ticker[1] for j in np.arange(start_fix_month, 11)]
+            fixs_feed = (con.bdh(fixs_order, 'PX_LAST', bbg_t, bbg_t, longdata=True).set_index('ticker').loc[fixs_order]['value'] / 1).tolist()
+        else:
+            fixs_order = [c.fix_ticker[0] + str(inf_fixings3.iloc[j]['months'].month()) + c.fix_ticker[1] for j in np.arange(start_fix_month,11)]
+            fixs_feed = (con.bdh(fixs_order, 'PX_LAST', bbg_t, bbg_t, longdata=True).set_index('ticker').loc[fixs_order]['value']/100).tolist()
+
+        fixs_base = [ list(inf_index_hist[inf_index_hist['months'] == (inf_fixings3.iloc[j]['months'] - ql.Period('1Y'))]['index'])[0] for j in np.arange(start_fix_month,11)]
+        inf_fixings3.loc[start_fix_month:10,'index'] = [ b*(1+(f/100)) for f, b in zip(fixs_feed, fixs_base)]
 
         prj_inf_fixings = inf_index_hist[:-cutoff - 1]
-        inf_fixings3 = prj_inf_fixings.append(inf_fixings3, ignore_index=True)
+#        inf_fixings3 = prj_inf_fixings.append(inf_fixings3, ignore_index=True)
+        inf_fixings3 = pd.concat([prj_inf_fixings, inf_fixings3], ignore_index=True)
     else:
         inf_fixings3 = inf_fixings1
 
+    time10 = time.time()
     print("*** !!! inflation_curve built !!! ***" )
+
+
+#    print('1 : ', np.round(time2-time1,2), np.round(time2-time1,2), ' \n ',
+#          '2 : ', np.round(time3-time2,2) , np.round(time3-time1,2), ' \n ',
+#          '3 : ', np.round(time4-time3,2), np.round(time4-time1,2), ' \n ',
+#          '4 : ', np.round(time5-time4,2), np.round(time5-time1,2), ' \n ',
+#          '5 : ', np.round(time6-time5,2), np.round(time6-time1,2), ' \n ',
+#          '6 : ', np.round(time7-time6,2), np.round(time7-time1,2), ' \n ',
+#          '7 : ', np.round(time8-time7,2), np.round(time8-time1,2), ' \n ',
+#          '8 : ', np.round(time9-time8,2), np.round(time9-time1,2),' \n ',
+#          '9 : ', np.round(time10-time9,2), np.round(time10-time1,2))
 
     class infl_zc_build_output():
         def __init__(self):
@@ -232,8 +281,9 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
     if trade_dt != 0:
         start = inf_curve.cal.advance(ql.Date(int(trade_dt.split('-')[0]),int(trade_dt.split('-')[1]),int(trade_dt.split('-')[2])),1,ql.Days)
         end = inf_curve.cal.advance(start, tenor, ql.Years)
-        trade_curve = ois_dc_build("SONIA_DC", b=trade_dt)
-        trade_dc = trade_curve.curve
+#        trade_curve = ois_dc_build("SONIA_DC", b=trade_dt)
+#        trade_dc = trade_curve.curve
+        trade_dc = inf_curve.dc
 
     else:
         if isinstance(st_date, ql.Date) == True:
@@ -363,50 +413,34 @@ def Infl_ZC_Pricer(inf_curve, st_date, tenor, lag = 3, not1 = 10, use_forecast =
     return infl_zc_pricer_output()
 
 #xt = infl_zc_swap_build('HICPxT',b=0)
-#xt1 = infl_zc_swap_build('HICPxT',b=-1)
-
-#Infl_ZC_Pricer(rpi, '01-12-2020', 1, lag = 0, use_forecast=0, use_mkt_fixing=1).zc_rate
+#xt1 = infl_zc_swap_build('HICPxT',b='04-01-2024')
+#xt.rates
+#xt.base_month
+#Infl_ZC_Pricer(xt, '15-12-2023', 1, lag = 0, use_forecast=0, use_mkt_fixing=1).zc_rate
+#Infl_ZC_Pricer(xt1, '15-12-2023', 1, lag = 0, use_forecast=0, use_mkt_fixing=1).zc_rate
 #Infl_ZC_Pricer(rpi, '01-12-2020', 1, lag = 0, use_forecast=0, use_mkt_fixing=1).base
 
 
-
-
-######## plottting yoy inflation rates for some past and future dates 
 #ukrpi1 = infl_zc_swap_build('UKRPI', b=0)
-#hicpxt1 = infl_zc_swap_build('HICPxT', b=0)
-#ukrpi1.rates
+#ukrpi2 = infl_zc_swap_build('UKRPI', b='19-10-2023')
+#uscpi1 = infl_zc_swap_build('USCPI', b=0)
+#uscpi2 = infl_zc_swap_build('USCPI', b=-1)
 
-#rpi2 = [Infl_ZC_Pricer(ukrpi1, '15-10-2020', 1, lag = int(2-i), use_forecast=0, use_mkt_fixing=1).zc_rate for i in np.arange(49)]
-#hicp2 = [Infl_ZC_Pricer(hicpxt1, '15-10-2020', 1, lag = int(2-i), use_forecast=0, use_mkt_fixing=1).zc_rate for i in np.arange(49)]
+#e1 = inf_swap_table([ukrpi1, ukrpi2], lag = [2,2], outright_rates=[1,2,3,4,5,6,7,8,9,10,12,15,20,25,30], fwd_rates= [(1,1), (2,1), (3,1), (4,1), (2,2), (3,2), (5,5), (10,5), (10,10), (15,15) ],
+#                    curve_rates= [(2,3), (2,5), (2,10), (5,10), (5,30), (10,30)], fly_rates= [(2,3,5), (2,5,10), (3,5,7), (5,10,30)], shift = [0,'1M','2M','3M'],
+#                    price_nodes = 1, use_forecast = 0, use_mkt_fixing = 1)
 
-#cal = ql.UnitedKingdom()
-#dates2 = [cal.advance(ql.Date(15,8,2021), ql.Period(str(i)+'M')) for i in np.arange(49) ]
-#dates3 = [ql_to_datetime(dates2[i]) for i in np.arange(len(dates2))]
-
-#plt.figure(figsize=(10,8))
-#plt.plot(dates3, rpi2, label = "RPI")
-#plt.plot(dates3, hicp2, label = "HICPxT")
-#plt.axvline(x=dates3[12], c = 'k')
-#plt.xticks(rotation = 90)
-#plt.xlabel("Fixings Date")
-#plt.ylabel("Inflation YoY")
-#plt.legend()
-
-
-
-#ukrpi1 = infl_zc_swap_build('UKRPI', b=0)
-#ukrpi2 = infl_zc_swap_build('UKRPI', b=-1)
-
+#e1.table
 
 def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,  shift = [0,'1M','2M','3M'], price_nodes = 1, use_forecast = 0, use_mkt_fixing = 0):
     
-#    crvs = [ukrpi1, ukrpi2]
+#    crvs = [uscpi1, uscpi2]
 #    shift = [0,'1M','2M','3M']
 #    outright_rates = [1,2,3,4,5,6,7,8,9,10,12,15,20,25,30]
 #    fwd_rates = [(1,1), (2,1), (3,1), (4,1), (2,2), (3,2), (5,5), (10,5), (10,10), (15,15) ]
 #    curve_rates = [(2,3), (2,5), (2,10), (5,10), (5,30), (10,30)]
 #    fly_rates = [(2,3,5), (2,5,10), (3,5,7), (5,10,30)]
-#   price_nodes = 1
+#    price_nodes = 1
 #    lag = [3,3]
 #    use_forecast = 0
 #    use_mkt_fixing = 1
@@ -436,9 +470,12 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
     x5 = []  
     for s in shift:
         for i,j in curve_rates:
-            x4.append( [ 100*(Infl_ZC_Pricer( crvs[l], s, i, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate - Infl_ZC_Pricer( crvs[l], s, j, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate)  for l in np.arange(len(crvs))] )            
+            x4.append( [ 100*(Infl_ZC_Pricer( crvs[l], s, i, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate -
+                              Infl_ZC_Pricer( crvs[l], s, j, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate)  for l in np.arange(len(crvs))] )
         for i,j,k in fly_rates:
-            x5.append([    100*(  (2*Infl_ZC_Pricer( crvs[l], s, j, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate) - Infl_ZC_Pricer( crvs[l], s, i, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate - Infl_ZC_Pricer( crvs[l], s, k, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate )   for l in np.arange(len(crvs))] )
+            x5.append([    100*(  (2*Infl_ZC_Pricer( crvs[l], s, j, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate) -
+                                  Infl_ZC_Pricer( crvs[l], s, i, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate -
+                                  Infl_ZC_Pricer( crvs[l], s, k, lag[l] , not1 = 10, use_forecast=use_forecast , use_mkt_fixing=use_mkt_fixing ).zc_rate )   for l in np.arange(len(crvs))] )
         
     fwds = flat_lst( [ (x3[i][0], [100*(x3[i][0]-x3[i][j]) for j in np.arange(1,len(crvs))]) for i in np.arange(len(x3))] )
     curve = flat_lst( [ (x4[i][0], [1*(x4[i][0]-x4[i][j])   for j in np.arange(1,len(crvs))], [x4[ i+(len(curve_rates)*k)  ][0] for k in np.arange(1,len(shift))]) for i in np.arange(len(curve_rates))] )
@@ -448,27 +485,27 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
     df1['Tenor'] = outright_rates
     df1['ZC'] = zc[0::2]
     for i in np.arange(1,len(crvs)):
-        df1[str(crvs[i].ref_date)] = [ np.round(zc[i][0],1) for i in np.arange(len(zc))[1::2]]
+        df1['Δ'+str(i)] = [ np.round(zc[i][0],1) for i in np.arange(len(zc))[1::2]]
 
     df2 = pd.DataFrame()
-    df2['Fwds'] = fwd_rates
-    df2['ZC'] = fwds[0::2]
+    df2['Fwds'] = [str(j[0])+' x '+str(j[1]) for j in fwd_rates]
+    df2['Fwd.ZC'] = fwds[0::2]
     for i in np.arange(1, len(crvs)):
-        df2[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(fwds[i][0], 1) for i in np.arange(len(fwds))[1::2]]
+        df2['Δ.'+str(i)] = [np.round(fwds[i][0], 1) for i in np.arange(len(fwds))[1::2]]
 
     df3 = pd.DataFrame()
-    df3['Cuves'] = curve_rates
-    df3['Sprd'] = np.round(curve[0::3],1)
+    df3['Curves'] = [str(j[0])+' - '+str(j[1]) for j in curve_rates]
+    df3['Rate'] = np.round(curve[0::3],1)
     for i in np.arange(1, len(crvs)):
-        df3[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(curve[i][0], 1) for i in np.arange(len(curve))[1::3]]
+        df3['Δ~'+str(i)] = [np.round(curve[i][0], 1) for i in np.arange(len(curve))[1::3]]
     for j in np.arange(1, len(shift)):
         df3[shift[j]] = [np.round(curve[i][j-1], 1) for i in np.arange(len(curve))[2::3]]
 
     df4 = pd.DataFrame()
-    df4['Curves'] = fly_rates
-    df4['Fly'] = np.round(fly[0::3], 1)
+    df4['Curves'] = [str(j[0])+'.'+str(j[1])+'.'+str(j[2]) for j in fly_rates]
+    df4['Rate'] = np.round(fly[0::3], 1)
     for i in np.arange(1, len(crvs)):
-        df4[str(ql_to_datetime(crvs[i].ref_date))] = [np.round(fly[i][0], 1) for i in np.arange(len(fly))[1::3]]
+        df4['Δ~'+str(i)] = [np.round(fly[i][0], 1) for i in np.arange(len(fly))[1::3]]
     for j in np.arange(1, len(shift)):
         df4[shift[j]] = [np.round(fly[i][j - 1], 1) for i in np.arange(len(fly))[2::3]]
 
@@ -479,7 +516,7 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
     df5['Chg'] = [ np.round(100*(x2_mkt[i][0]-x2_mkt[i][1]),1) for i in np.arange(len(x2_mkt))]
 
 
-    output_table = pd.concat([df1, df5, df2, df3, df4], axis=1)
+    output_table = pd.concat([df1, df5, df2, pd.concat([df3, df4], ignore_index=True)], axis=1)
     output_table = output_table.fillna('')
 
     class inf_swap_table_output():
@@ -492,3 +529,76 @@ def inf_swap_table(crvs, lag, outright_rates, fwd_rates, curve_rates, fly_rates,
             self.fly = fly
     
     return inf_swap_table_output()
+
+
+
+#### update inflation fixings history
+def update_inflation_fixing_history(crv):
+#    crv = ['UKRPI','HICPxT']
+    today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+    for inf_crv in crv:
+        os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
+        c = ccy_infl(inf_crv, today)
+        prints = pd.Series([datetime.datetime(int(c.print_dates[i][0:4]), int(c.print_dates[i][5:7]), int(c.print_dates[i][8:10])) for i in range(len(c.print_dates))])
+        w1 = [(prints[-1:] + np.timedelta64(30 * i, 'D')).tolist()[0] for i in np.arange(1, 16)]
+        w2 = [datetime.datetime(w1[i].year, w1[i].month, 20) for i in np.arange(len(w1))]
+        prints = pd.Series(prints.tolist() + w2)
+
+        hist_saved = pd.read_pickle("./DataLake/"+inf_crv+"_fixing_hist.pkl")
+        start_dt = hist_saved.sort_values('date')['date'].tolist()[-40].strftime('%Y%m%d')
+#        start_dt = '20210101'
+
+        df1 = pd.DataFrame()
+        ticker_roll = ['','JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
+        for m in np.arange(1,13):
+            if inf_crv == 'USCPI':
+                v1 = con.bdh([c.fix_ticker[0] + str(ticker_roll[m]) + c.fix_ticker[1]], 'PX_LAST', start_dt, bbg_date_str(today, ql_date=1), longdata=True)
+                v1['ticker_code'] = ['F' for i in np.arange(len(v1))]
+            else:
+                v1 = con.bdh([c.fix_ticker[0]+str(m)+c.fix_ticker[1], c.fix_ticker[0][:-1]+'H'+str(m)+c.fix_ticker[1]], 'PX_LAST', start_dt, bbg_date_str(today, ql_date=1), longdata=True)
+                v1['ticker_code'] = [v1['ticker'][i][5] for i in np.arange(len(v1))]
+            if m != 12:
+                v2 = prints[[prints[i].month == m+1 for i in np.arange(len(prints))]].reset_index(drop=True)
+            else:
+                v2 = prints[[prints[i].month == 1 for i in np.arange(len(prints))]].reset_index(drop=True)
+
+            v1['month_release'] = [prints[(v1['date'][i].month == prints.dt.month) & (v1['date'][i].year == prints.dt.year)].tolist()[0] for i in np.arange(len(v1))]
+            if inf_crv == 'USCPI':
+                v1['print_release'] = [v2[v1['date'][i] <= v2].tolist()[v1['ticker_code'][i] == 'H'] for i in np.arange(len(v1))]
+            else:
+                v1['print_release'] = [v2[v1['date'][i] < v2].tolist()[v1['ticker_code'][i] == 'H'] for i in np.arange(len(v1))]
+            if m != 12:
+                v1['fix_month'] = [datetime.datetime((v1['print_release'][i].year ), m, 1) for i in np.arange(len(v1))]
+            else:
+                v1['fix_month'] = [datetime.datetime((v1['print_release'][i].year - 1), m, 1) for i in np.arange(len(v1))]
+            v1['fix_month2'] = [v1['fix_month'][i].strftime('%b-%y') for i in np.arange(len(v1))]
+            ##### clean data
+            v3 = v1.groupby('date').apply(lambda x: ((x['ticker_code'] == 'H') & (len(x) == 1)))
+            v3 = v3[v3 == 1]
+            v1 = v1.drop(index=[v3.index[i][1] for i in np.arange(len(v3.index))]).reset_index(drop=True)
+            #### compute fixings
+            if inf_crv == 'USCPI':
+                v1['fixing'] = np.round((v1[v1['ticker_code'] == 'F']['value'] / 1).tolist() + v1.groupby('date').apply(lambda x: get_1y1y_fwd((x['value'] / 100).tolist()) if len(x['value']) > 1 else np.NaN).dropna().tolist(), 3)
+            else:
+                v1['fixing'] = np.round((v1[v1['ticker_code'] == 'F']['value'] / 100).tolist() + v1.groupby('date').apply(lambda x: get_1y1y_fwd((x['value'] / 100).tolist()) if len(x['value']) > 1 else np.NaN).dropna().tolist(),3)
+
+            v1['gen_month'] = [(v1['fix_month'][i].month - v1['date'][i].month) + 12 * ((v1['fix_month'][i].month < v1['date'][i].month) and ((v1['fix_month'][i].year - v1['date'][i].year) > (v1['ticker_code'][i] == 'H'))) +
+                               (v1['date'][i] < v1['month_release'][i]) + 12 * (v1['ticker_code'][i] == 'H') + 1 for i in np.arange(len(v1))]
+
+            if inf_crv == 'USCPI':
+                gen2 = []
+                for i in np.arange(len(v1)):
+                    if v1['gen_month'][i] == 0:
+                        gen2.append(1)
+                    else:
+                        gen2.append(v1['gen_month'][i])
+                v1['gen_month'] = gen2
+            df1 = pd.concat([df1,v1], ignore_index=True)
+
+        df2 = pd.concat([hist_saved[~hist_saved['date'].isin(v1['date'].unique())], df1 ], ignore_index=True)
+        os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
+        df2.to_pickle(inf_crv+'_fixing_hist.pkl')
+    return
+
+
+

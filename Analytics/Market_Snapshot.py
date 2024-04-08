@@ -1,7 +1,7 @@
 ##### Market snapshot 
 
-start_date = '20230101'
-end_date = '20230706'
+start_date = '20231018'
+end_date = '20240312'
 
 inst = ['GT2 Govt','GT5 Govt','GT10 Govt','GT30 Govt', 'G0025 1Y1Y BLC2 Curncy', 'G0025 2Y1Y BLC2 Curncy', 'G0025 3Y1Y BLC2 Curncy', 'G0025 2Y2Y BLC2 Curncy','G0025 5Y5Y BLC2 Curncy' ,'G0025 10Y10Y BLC2 Curncy',
         'USOSFR2 Curncy', 'USOSFR5 Curncy', 'USOSFR10 Curncy', 'USOSFR30 Curncy','SD0490FS 1Y1Y BLC Curncy', 'SD0490FS 2Y1Y BLC Curncy', 'SD0490FS 3Y1Y BLC Curncy', 'SD0490FS 2Y2Y BLC Curncy', 'SD0490FS 5Y5Y BLC Curncy', 'SD0490FS 10Y10Y BLC Curncy',
@@ -45,7 +45,7 @@ def get_snap(inst, d1, d2):
     #### 20d changes
     df_20 = df1['value'].diff(20)
     ### ytd 
-    df_ytd = df1['value'][-1:] - list(df1[df1['date']  == '2023-01-03']['value'])[0]
+    df_ytd = df1['value'][-1:] - list(df1[df1['date']  == '2024-01-03']['value'])[0]
     a = [list( np.round(df1['value'][-1:],2)), list( np.round(100*df_5[-1:],1)), [np.round(zscore(df_5[5:])[-1:],2)],
          list( np.round(100*df_20[-1:],1)), [np.round(zscore(df_20[20:])[-1:],2)], list( np.round(100*df_ytd[-1:],0))]
 

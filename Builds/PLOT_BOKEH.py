@@ -36,16 +36,17 @@ con.start()
 
 # bokeh imports
 from bokeh.plotting import figure, show
-from bokeh.models import HoverTool, BoxZoomTool, ResetTool, Legend, DatetimeTickFormatter, LinearAxis
+from bokeh.models import HoverTool, BoxZoomTool, ResetTool, Legend, DatetimeTickFormatter, LinearAxis, LinearColorMapper
 from bokeh.models import ColumnDataSource, TabPanel, Tabs, LabelSet, Span, Range1d, FactorRange, CustomJS, TapTool
 from bokeh.events import Tap
 from bokeh.io import curdoc
-from bokeh.layouts import row, column, gridplot
+from bokeh.layouts import row, column, gridplot, layout
 from bokeh.palettes import Category10, brewer, Category20, Bright6
 from bokeh.transform import factor_cmap
 from bokeh.models.renderers import GlyphRenderer
 from itertools import accumulate
-
+from bokeh.colors import RGB
+from matplotlib import cm
 
 def plt_ois_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, name = '',fwd_tenor = '1y',int_tenor = '1y', built_curve=0, tail = 1, curve_fill = "", label_curve_name = 1, p_dim = [1000,400]):
     #### build curves
@@ -347,8 +348,8 @@ def ecfc_plot(a, b, c, contrib1 = 'GS', off = 'IMF'):
         s1.legend.spacing = 1
         s1.legend.background_fill_alpha = 0.0
         s1.legend.click_policy = "mute"
-        s1.xaxis.axis_label = 'Value'
-        s1.yaxis.axis_label = 'Date'
+        s1.xaxis.axis_label = 'Date'
+        s1.yaxis.axis_label = 'Value'
 
     s1.line(df2['date'], df2['value'], color = 'forestgreen', legend_label = off+": "+str(df2['value'][len(df2)-1]), alpha=1.0)
     s1.line( np.array(d1), np.array(m1), color = 'blue', legend_label = 'Avg: '+str(np.round(m1[0],2)), alpha=1.0)
@@ -361,10 +362,10 @@ def ecfc_plot(a, b, c, contrib1 = 'GS', off = 'IMF'):
 
 
 def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_curve=0 ,name = '',p_dim=[700,350]):
-#    c1 = ['UKRPI','HICPxT']
-#    h1 = [0,-10]
+#    c1 = ['HICPxT']
+#    h1 = [-1,'04-01-2024']
 #    bar_chg = 1
-#    sprd = 1
+#    sprd = 0
 #    max_tenor = 30
 #    name = ''
 
@@ -421,6 +422,12 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
         infl_base = crv[i].base_month
         inf_bases_dict[c1[int(np.floor(i/len(h1)))]].append(infl_base)
 
+    zc_late = dict([(key, dict([(key2, []) for key2 in ['par_nodes','par_zc']]) ) for key in c1])
+    for i in np.arange(0,len(crv),len(h1)):
+        zc_all_mat = crv[0].rates['maturity'].str[:-1].tolist()
+        zc_late[c1[i]]['par_nodes'] = zc_all_mat[:zc_all_mat.index(str(max_tenor))+1]
+        zc_late[c1[i]]['par_zc'] = crv[0].rates['px'].tolist()[:zc_all_mat.index(str(max_tenor))+1]
+
     rates = dict([(key, []) for key in c1])
     for i in np.arange(len(crv)):
         yr_axis = np.arange(max_tenor)
@@ -428,7 +435,8 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
         j = 0
         while j < max_tenor:
             start_sw = inf_bases_dict[list(inf_bases_dict.keys())[int(np.floor(i/len(h1)))]][0] +  ql.Period(str(j)+"Y")
-            rates_c.append(Infl_ZC_Pricer(crv[i], start_sw, 1, lag = 0).zc_rate)
+#            print(i,j,start_sw)
+            rates_c.append(Infl_ZC_Pricer(crv[i], start_sw, 1, lag = 0,  use_mkt_fixing=1).zc_rate)
             j+=1
         rates[c1[int(np.floor(i/len(h1)))]].append(rates_c)
 
@@ -461,17 +469,23 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
     s1 = figure(width=p_dim[0], height=p_dim[1], tools = ["pan","hover","wheel_zoom","box_zoom","save","reset","help"], toolbar_location='left')
     s1.xgrid.visible = False
     s1.ygrid.visible = False
-    s1.add_layout(Legend(), 'right')
+#    s1.add_layout(Legend(), 'right')
 
     for i in rates.keys():
         [s1.line(yr_axis+1, rates[i][j],
-                legend_label = i+': '+str(ref_dates[j]),
+                legend_label = i+': '+str(ref_dates[j])+': '+ ql_to_datetime(inf_bases_dict[i][0]).strftime('%b-%y'),
                 line_width = 2,
                 color =  Category20[20][ 2*(list(rates.keys()).index(i)+ (j* (len(list(rates.keys())) == 1))) ], alpha = (1.0-(0.4*j)),
                 muted_color = Category20[20][ 2*(list(rates.keys()).index(i)+ (j* (len(list(rates.keys())) == 1))) ], muted_alpha=0.2) for j in np.arange(n_chg)]
 
+    for i in zc_late.keys():
+        s1.circle(  list(map(int, zc_late[c1[0]]['par_nodes'])), zc_late[c1[0]]['par_zc'],
+                 color=Category20[20][2 * (list(zc_late.keys()).index(i) )],
+                 alpha=0.7,
+                 muted_alpha=0.2)
+
     s1.legend.label_text_font = "calibri"
-    s1.legend.label_text_font_size = "5pt"
+    s1.legend.label_text_font_size = "7pt"
     s1.legend.glyph_height = 5
     s1.legend.label_height = 5
     s1.legend.spacing = 1
@@ -483,10 +497,10 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
 
     ### Plot Sprd
     if sprd == 1:
-        s2 = figure(width=p_dim[0], height=p_dim[1]-150, tools = ["pan","hover","wheel_zoom","box_zoom","save","reset","help"], toolbar_location='left')
+        s2 = figure(width=p_dim[0], height=p_dim[1]-100, tools = ["pan","hover","wheel_zoom","box_zoom","save","reset","help"], toolbar_location='left')
         s2.xgrid.grid_line_dash = 'dotted'
         s2.ygrid.grid_line_dash = 'dotted'
-        s2.add_layout(Legend(), 'right')
+#        s2.add_layout(Legend(), 'right')
         for j in spreads.keys():
             s2.line( yr_axis+1 , spreads[j][0],
                         line_width = 2,
@@ -494,7 +508,7 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
                         color = Category20[20][2*list(bar_dict.keys()).index(j)], alpha = 1.0,
                         muted_color = Category20[20][2*list(bar_dict.keys()).index(j)], muted_alpha=0.2)
         s2.legend.label_text_font = "calibri"
-        s2.legend.label_text_font_size = "9pt"
+        s2.legend.label_text_font_size = "7pt"
         s2.legend.spacing = 1
         s2.legend.background_fill_alpha = 0.0
         s2.legend.click_policy = "mute"
@@ -511,22 +525,22 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
     if bar_chg == 1:
         n_sub_chg = len(n_obj['chg'])
         if n_sub_chg == 1:
-            s3 = figure(width=p_dim[0], height=p_dim[1]-150, tools = ["pan","hover","wheel_zoom","box_zoom","save","reset","help"], toolbar_location='left')
+            s3 = figure(width=p_dim[0], height=p_dim[1]-100, tools = ["pan","hover","wheel_zoom","box_zoom","save","reset","help"], toolbar_location='left')
             s3.xgrid.grid_line_dash = 'dotted'
             s3.ygrid.grid_line_dash = 'dotted'
-            s3.add_layout(Legend(), 'right')
+#            s3.add_layout(Legend(), 'right')
             width = 0.15
             bar_yr_axis = yr_axis
             for i in bar_dict.keys():
                 for j in np.arange(len(bar_dict[i])):
                     s3.vbar(x=np.array(bar_yr_axis)+1, top=bar_dict[i][j],
-                                legend_label = i+': '+str(h1[j+1]),
+                                legend_label = i+': '+str(h1[j+1])+': '+ ql_to_datetime(inf_bases_dict[i][0]).strftime('%b-%y'),
                                 width = width,
                                 color = Category20[20][ 2*(list(bar_dict.keys()).index(i)+ (j* (len(list(bar_dict.keys())) == 1))) ], alpha = (1.0-(0.4*j)),
                                 muted_color = Category20[20][ 2*(list(bar_dict.keys()).index(i)+ (j* (len(list(bar_dict.keys())) == 1))) ], muted_alpha=0.2)
                     bar_yr_axis = bar_yr_axis+width+0.1
             s3.legend.label_text_font = "calibri"
-            s3.legend.label_text_font_size = "9pt"
+            s3.legend.label_text_font_size = "7pt"
             s3.legend.spacing = 1
             s3.legend.background_fill_alpha = 0.0
             s3.legend.click_policy = "mute"
@@ -558,6 +572,7 @@ def plt_inf_curve_bokeh(c1, h1=[0], max_tenor=30, bar_chg = 0, sprd = 0, built_c
 
 
     return s_plot
+
 
 
 def plot_tool_bbg(a, crv, st_date, p_dim=[550,275]):
@@ -821,7 +836,7 @@ def plot_simple_wirp(dt1, gen=0):
     tab2 = TabPanel(child=s2, title="cum")
     tabs = Tabs(tabs=[tab1, tab2])
 
-    s3 = figure(width=550, height=400, tools=["pan", "crosshair", "wheel_zoom", "box_zoom", "save", "reset", "help"], toolbar_location='right')
+    s3 = figure(width=570, height=400, tools=["pan", "crosshair", "wheel_zoom", "box_zoom", "save", "reset", "help"], toolbar_location='right')
     s3.xaxis.formatter = DatetimeTickFormatter(days="%d-%b-%y", months="%d-%b-%y")
     s3.add_tools(HoverTool(tooltips=[('date', '$x{%d.%b.%y}'), ('y', '$y')], formatters={'$x': 'datetime'}))
     s3.xgrid.visible = False
@@ -831,6 +846,7 @@ def plot_simple_wirp(dt1, gen=0):
     s3.renderers.extend([zero_line])
     s3.title = 'Meeting Hist'
     s3.min_border_top = 30
+    s3.min_border_left = 50
 
     taptool_1 = s1.select(type=TapTool)
     def callback_1(event):
@@ -942,12 +958,17 @@ def plot_wirp(dt1, chg=0, gen=0, dates=['']):
         for j in crv:
 #            j = 'SOFR_DC'
             cut_off = month[j][1].index(month[j][0][0])
+            print('i am here:::: cutoff == ', cut_off)
             if cut_off != 0:
                 month_chg[j] = [month[j][m][:cut_off]+month[j][0] for m in np.arange(1,n_dates)]    ##### augmented list of months
                 step_chg[j] = [np.round(100*([tup[1] for item in month_chg[j][0] for tup in fixings[j] if tup[0] == item] - np.array(fwd_base[j][1][:cut_off])),1).tolist() +
                                (np.array(step[j][0][:-cut_off])-np.array(step[j][m][cut_off:])).tolist() +
                                cut_off*[0] for m in np.arange(1,n_dates)]
                 cum_chg[j] = [list(accumulate(step_chg[j][m])) for m in np.arange(n_dates-1)]
+            else:
+                month_chg[j] = [month[j][0]]
+                step_chg[j] = [(np.array(step[j][0]) - np.array(step[j][m])).tolist() for m in np.arange(1,n_dates)]
+                cum_chg[j] = [(np.array(cum[j][0]) - np.array(cum[j][m])).tolist() for m in np.arange(1,n_dates)]
 
         itr2 = [max([len(step_chg[j][0]) for j in crv]) - len(step_chg[j][0]) for j in crv]
         for j in np.arange(len(itr2)):
@@ -955,6 +976,7 @@ def plot_wirp(dt1, chg=0, gen=0, dates=['']):
                 month_chg[crv[j]][k] = month_chg[crv[j]][k] + itr2[j] * ['n/a']
                 step_chg[crv[j]][k] = step_chg[crv[j]][k] + itr2[j] * [0]
                 cum_chg[crv[j]][k] = cum_chg[crv[j]][k] + itr2[j] * [cum_chg[crv[j]][k][-1]]
+
 
     ### plot single curve + single chg:
     if n_crv == 1:
@@ -1589,45 +1611,276 @@ def plot_tool_bbg_listed(v2, fut_ticker, opt_w):
     return h1
 
 
+def plot_inflation_fixings(a, crv, gen=0):
+#    a = 'UKRPI'
+#    crv = [ukrpi1, ukrpi2]
+    today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+    for inf_crv in crv:
+        inf_crv.curve[1]['yoy'] = inf_crv.curve[1]['index'].pct_change(periods=12) * 100
 
 
+    fix_hist = ccy_infl(a, today).fix_hist
+    fix_df = []
+    for i in np.arange(len(crv)):
+        fix_df.append(crv[i].curve[1][crv[i].curve[1]['months'] > crv[i].base_month][:12]['months'].tolist())
+
+    fix_months = np.unique(fix_df)
+    fix_months = [ql_to_datetime(fix_months[i]).strftime('%b-%y') for i in np.arange(len(fix_months))]
+    fixings = np.round(crv[0].curve[1][crv[0].curve[1]['months'].isin(np.unique(fix_df))]['yoy'], 2).tolist()
+    fixings_chg = np.round(100 * (crv[0].curve[1][crv[0].curve[1]['months'].isin(np.unique(fix_df))]['yoy'] - crv[1].curve[1][crv[1].curve[1]['months'].isin(np.unique(fix_df))]['yoy']),1).tolist()
+
+    ##### getting barcap forecasts
+    crv[0].curve[2]['yoy'] = crv[0].curve[2]['index'].pct_change(periods=12) * 100
+    barcap_f = np.round(crv[0].curve[2][crv[0].curve[2]['months'].isin(np.unique(fix_df))]['yoy'], 2).tolist()
+
+#    s_plot = []
+    s1_source = ColumnDataSource(data=dict(x=fix_months, y=fixings, z=fixings_chg, b=barcap_f ))
+
+    s1 = figure(x_range=fix_months, width=550, height=300, tools=["pan", "tap", "wheel_zoom", "box_zoom", "save", "reset", "help"], toolbar_location='right')
+    s1.xgrid.visible = False
+    s1.ygrid.visible = False
+    s1.vbar(x='x', top='y', width=0.7, source=s1_source, color='lightsteelblue')
+    s1.y_range = Range1d( min(1, min(fixings)-1.5) , max(fixings) + 0.2)
+    labels_1 = LabelSet(x='x', y='y', text='y', level='glyph', text_align='center', y_offset=-10, source=s1_source, text_font_size='10px', text_color='midnightblue')
+    labels_2 = LabelSet(x='x', y=min(1, min(fixings)-1.5), text='b', level='glyph', text_align='center', y_offset=8, source=s1_source, text_font_size='10px', text_color='darkgreen')
+    s1.add_layout((labels_1))
+    s1.add_layout((labels_2))
+    s1.xaxis.major_label_orientation = math.pi / 2
+    s1.yaxis.axis_label = 'Fixings (vs Barcap)'
+#    s_plot.append(s1)
+
+    s2 = figure(x_range=fix_months, width=550, height=125, tools=["pan", "tap", "wheel_zoom", "box_zoom", "save", "reset", "help"], toolbar_location='right')
+    s2.xgrid.visible = False
+    s2.ygrid.visible = False
+    s2.circle(x='x', y='z', size=8, source=s1_source, color='firebrick', alpha=0.8)
+    zero_line = Span(location=0, dimension='width', line_color='darkseagreen', line_width=1)
+    s2.renderers.extend([zero_line])
+    labels_1a = LabelSet(x='x', y='z', text='z', level='glyph', text_align='center', y_offset=-14, source=s1_source, text_font_size='8px', text_color='firebrick')
+    s2.add_layout((labels_1a))
+    s2.y_range = Range1d( (min(fixings_chg)*(  1-(0.2*np.sign(min(fixings_chg)))))-5 , 5+max(fixings_chg)*(  1+(0.2*np.sign(max(fixings_chg)))))
+#    print('min:', min(fixings_chg), 'max:', max(fixings_chg))
+#    print('y2_min:', (min(fixings_chg)*(  1-(0.2*np.sign(min(fixings_chg)))))-2  )
+#    print('y2_max:', 2+max(fixings_chg)*(  1+(0.2*np.sign(max(fixings_chg))))  )
+    s2.yaxis.axis_label = 'Chg (bps)'
+    s2.yaxis.major_label_text_font_size = '7pt'
+    s2.xaxis.visible = False
+#    s_plot.append(s2)
+
+    tab1 = TabPanel(child=layout([[s1], [s2]]), title="Fixings")
+#    tab2 = TabPanel(child=s2, title="cum")
+    tabs = Tabs(tabs=[tab1])
+
+    s3 = figure(width=570, height=450, tools=["pan", "crosshair", "wheel_zoom", "box_zoom", "save", "reset", "help"], toolbar_location='right')
+    s3.xaxis.formatter = DatetimeTickFormatter(days="%d-%b-%y", months="%d-%b-%y")
+    s3.add_tools(HoverTool(tooltips=[('date', '$x{%d.%b.%y}'), ('y', '$y')], formatters={'$x': 'datetime'}))
+    s3.xgrid.visible = False
+    s3.ygrid.visible = False
+    s3.visible = False
+    zero_line = Span(location=0, dimension='width', line_color='darkseagreen', line_width=1)
+    s3.renderers.extend([zero_line])
+    s3.title = 'Fixing Hist'
+    s3.min_border_top = 30
+    s3.min_border_left = 50
+
+    taptool_1 = s1.select(type=TapTool)
+    def callback_1(event):
+        try:
+            remove_glyphs(s3, 'fix_plot')
+            s3.legend.items = []
+        except:
+            pass
+        out_indicies = s1_source.selected.indices
+        print('out_indicies: ',out_indicies)
+        if len(out_indicies) == 1:
+            if gen == 0:
+                fix = s1_source.data['x'][int(out_indicies[0])]
+                print('fix: ', fix)
+                df_fix_hist = fix_hist[fix_hist['fix_month2'] == fix].reset_index(drop=True)
+                df_fix_hist = df_fix_hist.sort_values('date')
+                print('df_fix: ', df_fix_hist)
+            else:
+                fix = int(out_indicies[0]) + 1
+                df_fix_hist = fix_hist[fix_hist['gen_month'] == fix].reset_index(drop=True)
+                df_fix_hist = df_fix_hist.sort_values('date')
+            s3.line(x=df_fix_hist['date'], y=df_fix_hist['fixing'], color='tomato', legend_label=str(fix), alpha=1.0, muted_alpha=0.1, name='fix_plot')
+            s3.visible = True
+            s3.legend.label_text_font = "calibri"
+            s3.legend.label_text_font_size = "8pt"
+            s3.legend.spacing = 1
+            s3.legend.background_fill_alpha = 0.0
+            s3.legend.click_policy = "mute"
+        elif len(out_indicies) == 2:
+            print('out_indicies: ', out_indicies)
+            if gen == 0:
+                fix = [s1_source.data['x'][int(out_indicies[i])] for i in np.arange(len(out_indicies))]
+                print('fix: ', fix)
+                df1 = fix_hist[((fix_hist['fix_month2'] == fix[0]) | (fix_hist['fix_month2'] == fix[1]))]
+                df1['sprd'] = 100*df1.groupby('date')['fixing'].diff()
+                print('df1: ', df1)
+                df_fix_hist = df1.sort_values('date').dropna()
+            else:
+                fix = [int(out_indicies[i]) + 1 for i in np.arange(len(out_indicies))]
+                df1 = fix_hist[((fix_hist['gen_month'] == fix[0]) | (fix_hist['gen_month'] == fix[1]))]
+                df1['sprd'] = 100*df1.groupby('date')['fixing'].diff()
+                df_fix_hist = df1.sort_values('date').dropna()
+            s3.line(x=df_fix_hist['date'], y=df_fix_hist['sprd'], color='darkgoldenrod', legend_label=str(fix[0]) + ' - ' + str(fix[1]), alpha=1.0, muted_alpha=0.1, name='fix_plot')
+            s3.visible = True
+            s3.legend.label_text_font = "calibri"
+            s3.legend.label_text_font_size = "8pt"
+            s3.legend.spacing = 1
+            s3.legend.background_fill_alpha = 0.0
+            s3.legend.click_policy = "mute"
+        else:
+            s3.visible = False
+    s1.on_event(Tap, callback_1)
+
+    return [tabs,s3]
 
 
+def swap_heatmap(crv, b=0, offset = [-1], ois_flag = 0, z_offset = 0, z_roll = ['3M','6M']):
 
+    h1 = curve_hmap(crv, b=b, offset=offset, ois_flag=ois_flag)
 
+    df_rates = h1.rates[:-1]
+    for i in list(df_rates.index):
+        if any(x == i for x in ['11Y', '13Y', '40Y']):
+            df_rates = df_rates.drop([i])
 
+    df_rates_chg = h1.rates_chg[h1.offset[z_offset]][:-1]
+    for i in list(df_rates_chg.index):
+        if any(x == i for x in ['11Y', '13Y', '40Y']):
+            df_rates_chg = df_rates_chg.drop([i])
 
+    m_coolwarm_rgb = (255 * cm.coolwarm(range(256))).astype('int')
+    coolwarm_palette = [RGB(*tuple(rgb)).to_hex() for rgb in m_coolwarm_rgb]
 
+    df1 = pd.DataFrame(df_rates.stack(), columns=['rate']).reset_index()
+    df2 = pd.DataFrame(df_rates_chg.stack(), columns=['chg']).reset_index()
+    df1.columns = ['Tenor', 'Curve', 'Rate']
+    df1['Chg'] = df2['chg']
+    n_crv = df_rates.shape[1]
+    s1_source = ColumnDataSource(df1)
 
+    df3 = pd.DataFrame(h1.curves.stack(), columns=['fwds']).reset_index()
+    df4 = pd.DataFrame(h1.chg[h1.offset[z_offset]].stack(), columns=['chg']).reset_index()
+    df3.columns = ['Fwds', 'Curve', 'Rate']
+    df3['Chg'] = df4['chg']
+    s2_source = ColumnDataSource(df3)
 
+    f1 = df1['Chg'].tolist() + df3['Chg'].tolist()
+    mapper_rates = LinearColorMapper(palette=coolwarm_palette, low=1, high=6.5)
+    mapper_chg = LinearColorMapper(palette=coolwarm_palette, low=min(f1), high=max(f1))
 
+    s1 = figure(title="Rate", x_range=df_rates.columns.tolist(), y_range=df_rates.index.tolist(), x_axis_location="below", width=100 * n_crv, height=400, toolbar_location=None)
+    s1.grid.grid_line_color = None
+    s1.axis.axis_line_color = None
+    s1.axis.major_tick_line_color = None
+    s1.axis.major_label_text_font_size = "12px"
+    s1.yaxis.axis_label = 'Tenor'
 
+    s1.rect(x="Curve", y="Tenor", width=1, height=1, source=s1_source, fill_color={'field': 'Rate', 'transform': mapper_rates}, line_color=None)
+    # s1.multi_line(xs=[[0,1], [1,2], [2,3], [3,4]], ys=[[0,0], [0,0], [0,0], [0,0]], color=['green', 'yellow', 'red', 'blue'], line_width=4)
+    labels = LabelSet(x='Curve', y='Tenor', text='Rate', source=s1_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s1.add_layout(labels)
 
+    s2 = figure(title='Chg: ' + str(ql_to_datetime(h1.dates[z_offset + 1]).strftime('%d-%b-%y')), x_range=df_rates.columns.tolist(), y_range=df_rates.index.tolist(), x_axis_location="below", y_axis_location="right",
+                width=100 * n_crv - 75, height=400, toolbar_location=None)
+    s2.grid.grid_line_color = None
+    s2.axis.axis_line_color = None
+    s2.axis.major_tick_line_color = None
+    s2.axis.major_label_text_font_size = "12px"
+    s2.yaxis.visible = False
 
+    s2.rect(x="Curve", y="Tenor", width=1, height=1, source=s1_source, fill_color={'field': 'Chg', 'transform': mapper_chg}, line_color=None)
+    labels_chg = LabelSet(x='Curve', y='Tenor', text='Chg', source=s1_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s2.add_layout(labels_chg)
 
+    s3 = figure(title="Fwds", x_range=df_rates.columns.tolist(), y_range=df3.Fwds.unique().tolist(), x_axis_location="below", width=100 * n_crv - 50, height=400, toolbar_location=None)
+    s3.grid.grid_line_color = None
+    s3.axis.axis_line_color = None
+    s3.axis.major_tick_line_color = None
+    s3.axis.major_label_text_font_size = "12px"
+    # s3.yaxis.axis_label = 'Fwd'
 
+    s3.rect(x="Curve", y="Fwds", width=1, height=1, source=s2_source, fill_color={'field': 'Rate', 'transform': mapper_rates}, line_color=None)
+    labels2 = LabelSet(x='Curve', y='Fwds', text='Rate', source=s2_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s3.add_layout(labels2)
 
+    s4 = figure(title="Chg", x_range=df_rates.columns.tolist(), y_range=df3.Fwds.unique().tolist(), x_axis_location="below", y_axis_location="right", width=100 * n_crv - 75, height=400, toolbar_location=None)
+    s4.grid.grid_line_color = None
+    s4.axis.axis_line_color = None
+    s4.axis.major_tick_line_color = None
+    s4.axis.major_label_text_font_size = "12px"
+    s4.yaxis.visible = False
 
+    s4.rect(x="Curve", y="Fwds", width=1, height=1, source=s2_source, fill_color={'field': 'Chg', 'transform': mapper_chg}, line_color=None)
+    labels_chg2 = LabelSet(x='Curve', y='Fwds', text='Chg', source=s2_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s4.add_layout(labels_chg2)
 
+    df5 = pd.DataFrame(h1.steep[::-1].stack(), columns=['spread']).reset_index()
+    df6 = pd.DataFrame(pd.DataFrame(h1.steep_chg[h1.offset[0]])[::-1].stack(), columns=['chg']).reset_index()
+    df5.columns = ['Steep', 'Curve', 'Spread']
+    df5['Chg'] = np.round(df6['chg'], 1)
+    s3_source = ColumnDataSource(df5)
 
+    df7 = pd.DataFrame(h1.roll[z_roll[0]][::-1].stack(), columns=['roll_1']).reset_index()
+    df8 = pd.DataFrame(h1.roll[z_roll[1]][::-1].stack(), columns=['roll_2']).reset_index()
+    df7.columns = ['Steep', 'Curve', 'Roll_1']
+    df7['Roll_1'] = np.round(df7['Roll_1'], 1)
+    df7['Roll_2'] = np.round(df8['roll_2'], 1)
+    s4_source = ColumnDataSource(df7)
 
+    f2 = df5['Chg'].tolist()
+    f3 = df7['Roll_1'].tolist() + df7['Roll_2'].tolist()
+    mapper_curve = LinearColorMapper(palette=coolwarm_palette, low=-50, high=50)
+    mapper_curve_chg = LinearColorMapper(palette=coolwarm_palette[::-1], low=min(f2), high=max(f2))
+    mapper_roll = LinearColorMapper(palette=coolwarm_palette[::-1], low=min(f3), high=max(f3))
 
+    s5 = figure(title="Curve", x_range=df_rates.columns.tolist(), y_range=df5.Steep.unique().tolist(), x_axis_location="below", width=100 * n_crv, height=400, toolbar_location=None)
+    s5.grid.grid_line_color = None
+    s5.axis.axis_line_color = None
+    s5.axis.major_tick_line_color = None
+    s5.axis.major_label_text_font_size = "12px"
+    s5.yaxis.axis_label = 'Curve'
 
+    s5.rect(x="Curve", y="Steep", width=1, height=1, source=s3_source, fill_color={'field': 'Spread', 'transform': mapper_curve}, line_color=None)
+    labels3 = LabelSet(x='Curve', y='Steep', text='Spread', source=s3_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s5.add_layout(labels3)
 
+    s6 = figure(title="Chg", x_range=df_rates.columns.tolist(), y_range=df5.Steep.unique().tolist(), x_axis_location="below", y_axis_location="right", width=100 * n_crv - 75, height=400, toolbar_location=None)
+    s6.grid.grid_line_color = None
+    s6.axis.axis_line_color = None
+    s6.axis.major_tick_line_color = None
+    s6.axis.major_label_text_font_size = "12px"
+    s6.yaxis.visible = False
 
+    s6.rect(x="Curve", y="Steep", width=1, height=1, source=s3_source, fill_color={'field': 'Chg', 'transform': mapper_curve_chg}, line_color=None)
+    labels_chg3 = LabelSet(x='Curve', y='Steep', text='Chg', source=s3_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s6.add_layout(labels_chg3)
 
+    s7 = figure(title='Roll: ' + z_roll[0], x_range=df_rates.columns.tolist(), y_range=df5.Steep.unique().tolist(), x_axis_location="below", width=100 * n_crv - 50, height=400, toolbar_location=None)
+    s7.grid.grid_line_color = None
+    s7.axis.axis_line_color = None
+    s7.axis.major_tick_line_color = None
+    s7.axis.major_label_text_font_size = "12px"
+    # s7.yaxis.visible = False
 
+    s7.rect(x="Curve", y="Steep", width=1, height=1, source=s4_source, fill_color={'field': 'Roll_1', 'transform': mapper_roll}, line_color=None)
+    labels_roll1 = LabelSet(x='Curve', y='Steep', text='Roll_1', source=s4_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s7.add_layout(labels_roll1)
 
+    s8 = figure(title='Roll: ' + str(z_roll[1]), x_range=df_rates.columns.tolist(), y_range=df5.Steep.unique().tolist(), x_axis_location="below", y_axis_location="right", width=100 * n_crv - 75, height=400, toolbar_location=None)
+    s8.grid.grid_line_color = None
+    s8.axis.axis_line_color = None
+    s8.axis.major_tick_line_color = None
+    s8.axis.major_label_text_font_size = "12px"
+    s8.yaxis.visible = False
 
+    s8.rect(x="Curve", y="Steep", width=1, height=1, source=s4_source, fill_color={'field': 'Roll_2', 'transform': mapper_roll}, line_color=None)
+    labels_roll2 = LabelSet(x='Curve', y='Steep', text='Roll_2', source=s4_source, level='glyph', text_align='center', y_offset=-7, text_color='black', text_font_size='9pt')
+    s8.add_layout(labels_roll2)
 
+    p = layout(children=[[s1, s2, s3, s4], [s5, s6, s7, s8]])
 
-
-
-
-
-
-
-
-
-
-
+    # grid = gridplot([[s1, s2, s3, s4]], width=300, height=500)
+    return p

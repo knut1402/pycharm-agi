@@ -1,6 +1,9 @@
 ##### batch ois
 import QuantLib as ql
 import datetime
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from Utilities import *
@@ -8,15 +11,16 @@ from OIS_DC_BUILD import ois_dc_build, get_wirp, get_wirp_hist, ois_from_nodes
 from Conventions import FUT_CT,FUT_CT_Q, ccy, ccy_infl, hist
 
 #### ois hist
-df_crv = pd.read_csv("./DataLake/query-usd-ois.csv")
-df_crv = pd.read_csv("./DataLake/query-gbp-sonia.csv")
-df_crv = pd.read_csv("./DataLake/query-eur-ester.csv")
-df_crv = df_crv[-100:]
-df_crv.reset_index(inplace=True, drop=True)
-a = 'SOFR_DC'
-out_pickle = 'SOFR_H'
+#df_crv = pd.read_csv("./DataLake/query-chf-saron.csv")
+#df_crv = pd.read_csv("./DataLake/query-gbp-sonia.csv")
+#df_crv = pd.read_csv("./DataLake/query-eur-ester.csv")
+#df_crv = pd.read_csv("./DataLake/query-aud-aonia.csv")
+#df_crv = df_crv[-1500:]
+#df_crv.reset_index(inplace=True, drop=True)
+#a = 'SARON_DC'
+#out_pickle = 'SARON_H'
 
-batch_ois(df_crv, a, out_pickle)
+#batch_ois(df_crv, a, out_pickle, write = 1)
 
 
 def batch_ois(df_crv, a, out_pickle = 'test_', write = 0):
@@ -128,32 +132,34 @@ def batch_ois(df_crv, a, out_pickle = 'test_', write = 0):
     return ois_db
 
 
-def batch_ois_update(dr_crv, a, out_pickle):
+def batch_ois_update(df_crv, a, out_pickle):
 #    a = 'SONIA_DC'
 #    out_pickle = 'SONIA_H'
-    cut_off_date = hist[a].index[-1]
+    cut_off_date = hist[a].index[-2]
     df_feed = df_crv.iloc[df_crv.index[df_crv['Date'] == cut_off_date].tolist()[0]+1:,:]
-    df_feed.reset_index(inplace=True, drop=True)
-    df_hist_add = batch_ois(df_feed, a)
+    if len(df_feed) > 0:
+        df_feed.reset_index(inplace=True, drop=True)
+        df_hist_add = batch_ois(df_feed, a)
 
-    hist[a] = pd.concat([hist[a], df_hist_add])
-    hist[a].to_pickle('./DataLake/'+out_pickle+'.pkl')
-    return print('hist update: '+str(len(df_feed)))
-
-#batch_ois_update(df_crv, 'SOFR_DC', out_pickle='SOFR_H')
+        hist[a] = pd.concat([hist[a], df_hist_add])
+        hist[a].to_pickle('./DataLake/'+out_pickle+'.pkl')
+        print(a + ' hist update: ' + str(len(df_feed))+'  last node:  '+ df_feed['Date'].tolist()[-1])
+    else:
+        print(a + ' no update -- last node:  '+ hist[a].iloc[-1].name)
+    return
 
 
 #### libor hist
-df_crv2 = pd.read_csv("./DataLake/query-gbp-6m.csv")
-df_crv2 = pd.read_csv("./DataLake/query-eur-6m.csv")
-df_crv2 = pd.read_csv("./DataLake/query-usd-3m.csv")
+#df_crv2 = pd.read_csv("./DataLake/query-gbp-6m.csv")
+#df_crv2 = pd.read_csv("./DataLake/query-eur-6m.csv")
+#df_crv2 = pd.read_csv("./DataLake/query-usd-3m.csv")
 #df_crv2 = df_crv2[-10:]
 #df_crv2.reset_index(inplace=True, drop=True)
-a = 'USD_3M'
-out_pickle = 'USD_3M_H'
+#a = 'USD_3M'
+#out_pickle = 'USD_3M_H'
+
 
 def batch_libor(df_crv2, a, out_pickle = 'test_', write = 0):
-
     today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
     c = ccy(a, today)
     TU_Dict = {'D': 0, 'W': 1, 'M': 2, 'Y': 3}
@@ -288,5 +294,85 @@ def batch_libor(df_crv2, a, out_pickle = 'test_', write = 0):
         crv_db.to_pickle('./DataLake/'+out_pickle+'.pkl')
     return crv_db
 
+
+
+
+
+
+
+
+
+
+
+
+
+######################### plotting calc FRAs vs BBG derivation
+#hist['AONIA_DC'].index[0]
+# today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+# c = ccy('AONIA_DC', today)
+# d = []
+# r = []
+#
+# for i in np.arange(len(hist['AONIA_DC'])):
+#     aud_crv = ois_from_nodes(hist['AONIA_DC'].iloc[i],c)
+#     d1 = c.cal.advance(aud_crv.ref_date, ql.Period('6M'))
+#     d2 = c.cal.advance(d1, ql.Period('3M'))
+#     d.append(aud_crv.trade_date)
+#     r.append(100*aud_crv.curve.forwardRate( d1 , d2, c.floating[1], ql.Simple).rate())
+#
+# aud_bbg = con.bdh('S0159FS 6M3M BLC Curncy','PX_LAST', '20130927','20240311', longdata = True)
+# aud_bbg['date2'] = [aud_bbg['date'][i].date() for i in np.arange(len(aud_bbg))]
+#
+# err = []
+# for i in np.arange(len(d)):
+#     err.append(100*(aud_bbg[aud_bbg['date2'] == ql_to_datetime(d[i])]['value'].tolist()[0] - r[i]))
+#
+#
+# fig, ax1 = plt.subplots(2,1,figsize=(10,8),  gridspec_kw={ 'height_ratios':[2,1]})
+# ax1[0].plot( [ql_to_datetime(d[i]) for i in np.arange(len(d))],r, label='citi_calc')
+# ax1[0].plot( aud_bbg['date'], aud_bbg['value'], label='bbg_calc')
+# ax1[0].legend(loc = 'upper left')
+# ax1[0].set_title('AONIA 1x3 FRA', color = 'darkblue')
+# ax1[1].plot( [ql_to_datetime(d[i]) for i in np.arange(len(d))], err, label='err_calc: median (bps):'+str(np.round(np.median(err),2)))
+# ax1[1].set_ylim([-4, 4])
+# ax1[1].legend(loc = 'upper left')
+# plt.show()
+#
+# np.sum([abs(err[i]) > 2.0 for i in np.arange(len(err))])/(len(err)/100)
+#
+#
+
+#
+# df1 = pd.read_csv("./DataLake/gilts_20y.csv")
+# df1 = df1[::-1]
+# df1 = df1.reset_index(drop=True)
+#
+# s1 = np.round(df1['15s-20s'].std(),1)
+# r1 = np.round(df1['15s-20s'].max() - df1['15s-20s'].min(),1)
+#
+# s2 = 100*np.round(df1['RY_15y'].std(),1)
+# r2 = 100*np.round(df1['RY_15y'].max() - df1['RY_15y'].min(),1)
+#
+#
+#
+# fig, ax = plt.subplots(2, figsize=(15, 12), tight_layout=True)
+# ax[0].plot(df1.index, df1['15s-20s'], label = '15s-20s')
+# #labels = list(df1['Date'][::100])
+# #ax.set_xticklabels(labels)
+# ax[0].set_xticks([] )
+# #ax[0].set_xticklabels( list(df1['Date'][::150]) )
+# #ax[0].tick_params(axis='x', rotation=90)
+# ax[0].set_title('15s-20s: std dev.: '+str(s1)+'bps   range: '+str(r1)+'bps')
+# #fig.show()
+#
+# #fig, ax = plt.subplots(figsize=(6, 4), tight_layout=True)
+# ax[1].plot(df1.index, 100*df1['RY_15y'], label = 'RY: 15Y')
+# #labels = list(df1['Date'][::100])
+# #ax.set_xticklabels(labels)
+# ax[1].set_xticks( list(df1.index[::150]) )
+# ax[1].set_xticklabels( list(df1['Date'][::150]) )
+# ax[1].tick_params(axis='x', rotation=90)
+# ax[1].set_title('15y RY: std dev.: '+str(s2)+'bps   range: '+str(r2)+'bps')
+# fig.show()
 
 

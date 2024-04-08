@@ -67,7 +67,7 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [123.18, 123.85, 125.02, 125.66, 125.85, 126.07, 125.88]
+forecast_index_hist['index'] = [125.05, 125.59, 125.78, 125.98, 125.76, 126.02, 126.15]
 #### combine fixings:
 #inf_index_hist = inf_index_hist.append(forecast_index_hist, ignore_index = True)
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
@@ -179,7 +179,7 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [380.8, 382.3, 382.2, 383.6, 384.6, 383.0, 384.2 ]
+forecast_index_hist['index'] = [380.9, 382.7, 384.7, 386.3, 387.4, 386.8, 388.0 ]
 #### combine fixings:
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database
@@ -234,7 +234,7 @@ forecast_schedule = schedule = ql.MakeSchedule(last_index_month+ql.Period('1M'),
 forecast_index_hist = pd.DataFrame()
 forecast_index_hist['months'] = [forecast_schedule[i] for i in range(len(forecast_schedule))]
 forecast_index_hist['months'] = pd.to_datetime([str(forecast_index_hist['months'][i]) for i in np.arange(len(forecast_index_hist))])
-forecast_index_hist['index'] = [310.28, 311.72, 312.57, 312.98, 313.87, 314.06, 314.35, 314.68, 314.55 ]
+forecast_index_hist['index'] = [311.831, 312.815, 313.689, 314.787, 315.025, 315.613, 315.94, 315.709, 315.805 ]
 #### combine fixings:
 inf_index_hist =pd.concat([inf_index_hist, forecast_index_hist], ignore_index=True)
 #### write to database

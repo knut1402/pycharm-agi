@@ -11,6 +11,7 @@ import runpy
 import QuantLib as ql
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from Utilities import *
 
 con = pdblp.BCon(debug=False, port=8194, timeout=5000)
 con.start()
@@ -66,7 +67,7 @@ def FUT_CT(eval_date):
     return FUT_M
 
 
-def FUT_CT_Q(eval_date):
+def FUT_CT_Q(eval_date, is_ois_fut=0):
     today = ql.Date(
         datetime.datetime.now().day,
         datetime.datetime.now().month,
@@ -101,7 +102,8 @@ def FUT_CT_Q(eval_date):
     s2 = pd.Series([a2 + ql.Period(3 * i, ql.Months) for i in range(0, 20)])
     s3 = (s2 > today) * 1 - 2
     s3.reset_index(drop=True, inplace=True)
-
+    if is_ois_fut ==1:
+        s3[pd.Index(s3.diff()).get_loc(1) - 1] = -1
     FUT_M["Date"] = pd.Series(s2.tolist())
     # FUT_M['TickerMonth'] = pd.Series([FUT_CT[str(FUT_M['Date'][i].month())]+str(FUT_M['Date'][i].year())[-1:] for i in range(len(FUT_M))])
     FUT_M["TickerMonth"] = pd.Series(
@@ -111,7 +113,6 @@ def FUT_CT_Q(eval_date):
             for i in range(len(FUT_M))
         ]
     )
-
     return FUT_M
 
 ## conventions
@@ -630,7 +631,7 @@ def ccy(a, eval_date):
         add_inst = "FUT"
         fut_type = ql.Futures.IMM
         sett_d = 2
-        dc_index = "CAD_OIS_DC"
+        dc_index = "CORRA_DC"
         fixed_leg = ql.Period(6, ql.Months)
         fixed_acc = ql.Actual365Fixed()
         fixed_freq = ql.Semiannual
@@ -1459,7 +1460,7 @@ def ccy(a, eval_date):
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0514 INDEX"
         bbgplot_curve_tickers = ['EESWE', 'S0514FS','EESF']
-        ois_contrib = ['TRSO',15]
+        ois_contrib = ['TRSO',14]
         ois_meet_hist = pd.read_pickle("./DataLake/ESTER_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 2
@@ -1569,15 +1570,15 @@ def ccy(a, eval_date):
         eoy = -0.25 / 3600000
     elif a == "AONIA_DC":
         ois_trigger = 1
-        batch_trigger = 0
+        batch_trigger = 1
         curncy = ql.AUDCurrency()
-        base_ticker = 'RBATCTR Index'
+        base_ticker = 'RBACTRD Index'
         fixing = "RBACOR Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0159 INDEX"
-        bbgplot_curve_tickers = ['ADSO', 'S0159FS', 'ADSF1A']
-        ois_contrib = 'BLC'
-        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
+        bbgplot_curve_tickers = ['ADSO', 'S0159FS', 'ADSF']
+        ois_contrib = ['NABZ', 13]    #### alts: ALCM, ICPL
+        ois_meet_hist = pd.read_pickle("./DataLake/AONIA_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 1
         fixed_leg = ql.Period(1, ql.Years)
@@ -1622,17 +1623,17 @@ def ccy(a, eval_date):
         eom = -1.0 / 3600000
         eoq = -1.0 / 3600000
         eoy = -10.0 / 3600000
-    elif a == "CAD_OIS_DC":
+    elif a == "CORRA_DC":
         ois_trigger = 1
-        batch_trigger = 0
+        batch_trigger = 1
         curncy = ql.CADCurrency()
         base_ticker = 'CABROVER Index'
         fixing = "CAONREPO Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0147 INDEX"
         bbgplot_curve_tickers = ['CDSO', 'S0147FS', 'CDSF']
-        ois_contrib = 'BLC'
-        ois_meet_hist = pd.read_pickle("./DataLake/SOFR_DC_OIS_MEETING_HIST.pkl")
+        ois_contrib = ['BMOD', 11]    #### alts: TRUK, ICPL, NBFD
+        ois_meet_hist = pd.read_pickle("./DataLake/CORRA_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         add_tenors["value"] = [
             "CDSO7 Curncy",
@@ -1645,29 +1646,34 @@ def ccy(a, eval_date):
         ]
         add_tenors["Tenor"] = ["7Y", "10Y", "12Y", "15Y", "20Y", "25Y", "30Y"]
         sett_d = 1
-        fixed_leg = ql.Period(6, ql.Months)
+        fixed_leg = ql.Period(1, ql.Years)
         fixed_acc = ql.Actual365Fixed()
-        fixed_freq = ql.Semiannual
+        fixed_freq = ql.Annual
         floating_leg = ql.Period(6, ql.Months)
         floating_acc = ql.Actual365Fixed()
         custom_index_trigger = 1
         index = ql.OvernightIndex(
-            "CAD_OIS", 1, ql.CADCurrency(), ql.Canada(), ql.Actual365Fixed()
+            "CORRA", 1, ql.CADCurrency(), ql.Canada(), ql.Actual365Fixed()
         )
         index_a = ql.OvernightIndex(
-            "CAD_OIS", 1, ql.CADCurrency(), ql.Canada(), ql.Actual365Fixed()
+            "CORRA", 1, ql.CADCurrency(), ql.Canada(), ql.Actual365Fixed()
         )
         calendar = ql.Canada()
         fut_type = "none"
         eom = -1.0 / 3600000
         eoq = -1.0 / 3600000
         eoy = -10.0 / 3600000
-    elif a == "CHF_OIS_DC":
+    elif a == "SARON_DC":
         ois_trigger = 1
+        batch_trigger = 1
         curncy = ql.CHFCurrency()
+        base_ticker = 'SZLTDEP Index'
         fixing = "SRFXON3 Index"
         fixing_tenor = ql.Period(1, ql.Days)
         bbg_curve = "YCSW0234 INDEX"
+        bbgplot_curve_tickers = ['SFSNT', 'S0234FS', 'SSY']
+        ois_contrib = ['', 9]  #### alts:
+        ois_meet_hist = pd.read_pickle("./DataLake/ESTER_DC_OIS_MEETING_HIST.pkl")
         add_tenors = pd.DataFrame()
         sett_d = 2
         fixed_leg = ql.Period(1, ql.Years)
@@ -1677,10 +1683,10 @@ def ccy(a, eval_date):
         floating_acc = ql.Actual360()
         custom_index_trigger = 1
         index = ql.OvernightIndex(
-            "CHF_OIS", 1, ql.CHFCurrency(), ql.Switzerland(), ql.Actual360()
+            "SARON", 1, ql.CHFCurrency(), ql.Switzerland(), ql.Actual360()
         )
         index_a = ql.OvernightIndex(
-            "CHF_OIS", 1, ql.CHFCurrency(), ql.Switzerland(), ql.Actual360()
+            "SARON", 1, ql.CHFCurrency(), ql.Switzerland(), ql.Actual360()
         )
         calendar = ql.Switzerland()
         fut_type = "none"
@@ -1840,10 +1846,13 @@ def ccy(a, eval_date):
     return dict()
 
 ## history
-hist = dict([(key, []) for key in ['SOFR_DC', 'SONIA_DC', 'ESTER_DC', 'USD_3M','GBP_6M', 'EUR_6M']])
+hist = dict([(key, []) for key in ['SOFR_DC', 'SONIA_DC', 'ESTER_DC','SARON_DC', 'AONIA_DC', 'CORRA_DC', 'USD_3M','GBP_6M', 'EUR_6M']])
 hist['SOFR_DC'] = pd.read_pickle("./DataLake/SOFR_H.pkl")
 hist['SONIA_DC'] = pd.read_pickle("./DataLake/SONIA_H.pkl")
 hist['ESTER_DC'] = pd.read_pickle("./DataLake/ESTER_H.pkl")
+hist['SARON_DC'] = pd.read_pickle("./DataLake/SARON_H.pkl")
+hist['AONIA_DC'] = pd.read_pickle("./DataLake/AONIA_H.pkl")
+hist['CORRA_DC'] = pd.read_pickle("./DataLake/CORRA_H.pkl")
 hist['USD_3M'] = pd.read_pickle("./DataLake/USD_3M_H.pkl")
 hist['EUR_6M'] = pd.read_pickle("./DataLake/EUR_6M_H.pkl")
 hist['GBP_6M'] = pd.read_pickle("./DataLake/GBP_6M_H.pkl")
@@ -1854,11 +1863,15 @@ hist['GBP_6M'] = pd.read_pickle("./DataLake/GBP_6M_H.pkl")
 ## inflation curve conventions
 
 def ccy_infl(a, eval_date):
+    today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+
     if a == "HICPxT":
         calendar = ql.TARGET()
         inf_index = "CPTFEMU Index"
         interpol = 0
         inf_index_hist = pd.read_pickle("./DataLake/HICPxT_hist.pkl")
+        fixings_hist = pd.read_pickle("./DataLake/HICPxT_fixing_hist.pkl")
+        release = con.bulkref('ECCPEMUY Index', 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", '20130101'), ("END_DT", bbg_date_str(calendar.advance(today, ql.Period('2Y')), ql_date=1))])['value']
         inf_index_hist["months"] = [
             ql.Date(
                 inf_index_hist["months"][i].day,
@@ -1895,11 +1908,12 @@ def ccy_infl(a, eval_date):
             0.1042,
             0.0764,
             -0.4153,
-            0.1677,
+            0.1676,
         ]
+        lag = 3
         base_month = (
             calendar.advance(eval_date, 2, ql.Days)
-            - ql.Period("3M")
+            - ql.Period(str(lag)+"M")
             - (calendar.advance(eval_date, 2, ql.Days) - ql.Period("3M")).dayOfMonth()
             + 1
         )
@@ -1910,7 +1924,7 @@ def ccy_infl(a, eval_date):
             for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40]
         ]
         fix_t1 = "EUSWIF"
-        fix_t2 = " INFA Curncy"
+        fix_t2 = " INFF Curncy"
         last_month_dt = con.ref(inf_index, "LAST_UPDATE_DT")["value"][0]
         last_month_fix = ql.Date(1, last_month_dt.month, last_month_dt.year)
         currency = "EUR"
@@ -1921,6 +1935,8 @@ def ccy_infl(a, eval_date):
         inf_index = "FRCPXTOB Index"
         interpol = 1
         inf_index_hist = pd.read_pickle("./DataLake/FRCPI_hist.pkl")
+        fixings_hist = pd.DataFrame()
+        release = con.bulkref(inf_index, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", '20130101'), ("END_DT", bbg_date_str(calendar.advance(today, ql.Period('2Y')), ql_date=1))])['value']
         inf_index_hist["months"] = [
             ql.Date(
                 inf_index_hist["months"][i].day,
@@ -1957,11 +1973,12 @@ def ccy_infl(a, eval_date):
             -0.658,
             -0.0468,
             -0.1451,
-            0.1916,
+            0.1915,
         ]
+        lag = 3
         base_month = (
             calendar.advance(eval_date, 2, ql.Days)
-            - ql.Period("3M")
+            - ql.Period(str(lag)+"M")
             - (calendar.advance(eval_date, 2, ql.Days) - ql.Period("3M")).dayOfMonth()
             + 1
         )
@@ -1979,11 +1996,12 @@ def ccy_infl(a, eval_date):
         dc_curve = "ESTER_DC"
 
     if a == "UKRPI":
-        #        eval_date = ql.Date(datetime.datetime.now().day,datetime.datetime.now().month,datetime.datetime.now().year)-1
         calendar = ql.UnitedKingdom()
         inf_index = "UKRPI Index"
         interpol = 0
         inf_index_hist = pd.read_pickle("./DataLake/UKRPI_hist.pkl")
+        fixings_hist = pd.read_pickle("./DataLake/UKRPI_fixing_hist.pkl")
+        release = con.bulkref(inf_index, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", '20130101'), ("END_DT", bbg_date_str(calendar.advance(today, ql.Period('2Y')), ql_date=1))])['value']
         inf_index_hist["months"] = [
             ql.Date(
                 inf_index_hist["months"][i].day,
@@ -2019,12 +2037,13 @@ def ccy_infl(a, eval_date):
             0.312,
             -0.1348,
             -0.1531,
-            -0.1182,
-            0.3086,
+            -0.1282,
+            0.3032,
         ]
+        lag = 2
         base_month = (
             calendar.advance(eval_date, 2, ql.Days)
-            - ql.Period("2M")
+            - ql.Period(str(lag)+"M")
             - (calendar.advance(eval_date, 2, ql.Days) - ql.Period("2M")).dayOfMonth()
             + 1
         )
@@ -2035,22 +2054,19 @@ def ccy_infl(a, eval_date):
             for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50]
         ]
         fix_t1 = "BPSWIF"
-        fix_t2 = " INFA Curncy"
+        fix_t2 = " INFF Curncy"
         last_month_dt = con.ref(inf_index, "LAST_UPDATE_DT")["value"][0]
         last_month_fix = ql.Date(1, last_month_dt.month, last_month_dt.year)
         currency = "GBP"
         dc_curve = "SONIA_DC"
 
     if a == "USCPI":
-        eval_date = ql.Date(
-            datetime.datetime.now().day,
-            datetime.datetime.now().month,
-            datetime.datetime.now().year,
-        )
         calendar = ql.UnitedStates(ql.UnitedStates.FederalReserve)
         inf_index = "CPURNSA Index"
         interpol = 0
         inf_index_hist = pd.read_pickle("./DataLake/USCPI_hist.pkl")
+        fixings_hist = pd.read_pickle("./DataLake/USCPI_fixing_hist.pkl")
+        release = con.bulkref(inf_index, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", '20130101'), ("END_DT", bbg_date_str(calendar.advance(today, ql.Period('2Y')), ql_date=1))])['value']
         inf_index_hist["months"] = [
             ql.Date(
                 inf_index_hist["months"][i].day,
@@ -2089,9 +2105,10 @@ def ccy_infl(a, eval_date):
             -0.2769,
             -0.2164,
         ]
+        lag = 3
         base_month = (
             calendar.advance(eval_date, 2, ql.Days)
-            - ql.Period("3M")
+            - ql.Period(str(lag)+"M")
             - (calendar.advance(eval_date, 2, ql.Days) - ql.Period("3M")).dayOfMonth()
             + 1
         )
@@ -2101,8 +2118,8 @@ def ccy_infl(a, eval_date):
             inf_swap_ticker_temp[0] + str(i) + " Curncy"
             for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30]
         ]
-        fix_t1 = "none"
-        fix_t2 = " XTRA Curncy"
+        fix_t1 = "MNDEF"
+        fix_t2 = " Index"
         last_month_dt = con.ref(inf_index, "LAST_UPDATE_DT")["value"][0]
         last_month_fix = ql.Date(1, last_month_dt.month, last_month_dt.year)
         currency = "USD"
@@ -2118,6 +2135,8 @@ def ccy_infl(a, eval_date):
         inf_index = "CACPI Index"
         interpol = 0
         inf_index_hist = pd.read_pickle("./DataLake/CACPI_hist.pkl")
+        fixings_hist = pd.DataFrame()
+        release = con.bulkref(inf_index, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", '20130101'), ("END_DT", bbg_date_str(calendar.advance(today, ql.Period('2Y')), ql_date=1))])['value']
         inf_index_hist["months"] = [
             ql.Date(
                 inf_index_hist["months"][i].day,
@@ -2156,9 +2175,10 @@ def ccy_infl(a, eval_date):
             -0.2769,
             -0.2164,
         ]
+        lag = 2
         base_month = (
             calendar.advance(eval_date, 2, ql.Days)
-            - ql.Period("2M")
+            - ql.Period(str(lag)+"M")
             - (calendar.advance(eval_date, 2, ql.Days) - ql.Period("2M")).dayOfMonth()
             + 1
         )
@@ -2173,7 +2193,7 @@ def ccy_infl(a, eval_date):
         last_month_dt = con.ref(inf_index, "LAST_UPDATE_DT")["value"][0]
         last_month_fix = ql.Date(1, last_month_dt.month, last_month_dt.year)
         currency = "CAD"
-        dc_curve = "CAD_OIS_DC"
+        dc_curve = "CORRA_DC"
 
     class ccy_infl_output:
         def __init__(self):
@@ -2182,11 +2202,14 @@ def ccy_infl(a, eval_date):
             self.cal = calendar
             self.index = inf_index
             self.interp = interpol
+            self.lag = lag
             self.base_month = base_month
             self.ticker = inf_swap_ticker
             self.fix_ticker = (fix_t1, fix_t2)
+            self.fix_hist = fixings_hist
             self.last_fix_month = last_month_fix
             self.ccy = currency
             self.dc_curve = dc_curve
+            self.print_dates = release
 
     return ccy_infl_output()

@@ -63,7 +63,7 @@ class SwapMon(param.Parameterized):
         }
         """
 
-        self.curve_input = pn.widgets.Select(name='Curve', options=['SOFR_DC', 'ESTER_DC', 'SONIA_DC'], width=100, height=50, margin=(20, 20, 10, 10),styles={'color': 'blue', 'font-size': '12pt'})
+        self.curve_input = pn.widgets.Select(name='Curve', options=['SOFR_DC', 'ESTER_DC', 'SONIA_DC', 'AONIA_DC', 'CORRA_DC'], width=150, height=50, margin=(20, 20, 10, 10),styles={'color': 'blue', 'font-size': '12pt'})
         t = ql_to_datetime(today)
         self.date_input = pn.widgets.DatePicker(name='Date', value=t, styles={'color': 'black', 'font-size': '10pt'}, width=100, height=30, margin=(23, 20, 10, 10))
         t1 = ql_to_datetime(c.cal.advance(today, -1, ql.Days))
@@ -72,7 +72,7 @@ class SwapMon(param.Parameterized):
         self.curve_input.param.watch(self.update_curve, 'value')
 #        self.date_input.param.watch(self.update_curve, 'value')     ##### otherwise triggers before re-calc offset
         self.offset_date.param.watch(self.update_curve, 'value')
-        self.generic = pn.widgets.Checkbox(name='OIS:#', value=False, styles={'color': 'black', 'font-size': '9pt'}, width=100, height=30, margin=(55, 10, 10, 20))
+        self.generic = pn.widgets.Checkbox(name='OIS:#', value=False, styles={'color': 'black', 'font-size': '9pt'}, width=100, height=30, margin=(55, 10, 0, 20))
         self.update_notification = pn.widgets.StaticText(name='Status', value='df not yet updated')
 
         # Curve table setup
@@ -228,9 +228,9 @@ class SwapMon(param.Parameterized):
 
     def create_layout(self):
         print('create: layout')
-        build_button = pn.widgets.Button(name='Build', button_type='primary',  width=60, height=40, margin=(32, 15, 5, 5), styles={'color': 'red', 'font-size': '12pt'})
+        build_button = pn.widgets.Button(name='Build', button_type='primary',  width=50, height=30, margin=(40, 10, 0, 0), styles={'color': 'red', 'font-size': '12pt'})
         build_button.on_click(self.build_curve)
-        calculate_button = pn.widgets.Button(name='Tab-Calc', button_type='primary', on_click=self.calc_callback_fx, width=60, height=40, margin=(32, 15, 5, 5), styles={'color': 'gray', 'font-size': '12pt'})
+        calculate_button = pn.widgets.Button(name='Tab-Calc', button_type='primary', on_click=self.calc_callback_fx, width=50, height=30, margin=(40, 10, 0, 0), styles={'color': 'gray', 'font-size': '12pt'})
 
         return pn.Column(
             pn.Row(self.curve_input, self.quick_dates, self.date_input, self.offset_date, build_button, calculate_button, self.generic),

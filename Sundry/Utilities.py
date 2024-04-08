@@ -92,6 +92,14 @@ def bond_fut_yield(fut_ticker, fut_px):
     return bond_fut_yield_tab
 
 
+def get_next_imm(d,n):
+    d = ql.UnitedKingdom().advance(d,ql.Period('-3m'))
+    imms = [d]
+    for i in np.arange(n):
+        imms.append(ql.IMM.nextDate( imms[-1] ))
+    return imms[1:]
+
+
 
 
 ############### for bond futures options pricing
@@ -327,4 +335,41 @@ def remove_glyphs(figure, glyph_name_list):
         if r.name in glyph_name_list:
             col = r.glyph.y
             r.data_source.data[col] = [np.nan] * len(r.data_source.data[col])
+
+### inflation 1y1y fwd for fixings
+def get_1y1y_fwd(a):
+    return 100*((((1 + (0.01 * a[1])) ** 2) / ((1 + (0.01 * a[0])) ** 1)) - 1)
+
+
+def get_linker_metrics(df, sort_feed, m='fly'):
+    df_out = pd.DataFrame()
+    df_out['date'] = df.index
+
+    if m == 'fly':
+        df_out[m] = list(100 * (2 * df[sort_feed[1]] - df[sort_feed[0]] - df[sort_feed[2]])['YLD_YTM_MID'])
+        df_out[m+'z_sprd'] = list(1 * (2 * df[sort_feed[1]] - df[sort_feed[0]] - df[sort_feed[2]])['Z_SPRD_MID'])
+    elif m == 'spread':
+        df_out[m] = list(100 * (df[sort_feed[1]] - df[sort_feed[0]])['YLD_YTM_MID'])
+        df_out[m+'z_sprd'] = list(1 * (df[sort_feed[1]] - df[sort_feed[0]])['Z_SPRD_MID'])
+    elif m == 'ry':
+        df_out[m] = list(1 * (df[sort_feed[0]])['YLD_YTM_MID'])
+        df_out[m+'z_sprd'] = list(1 * (df[sort_feed[0]])['Z_SPRD_MID'])
+
+    df_out['z_score_1m'] = roll_zscore(df_out[m], 20)
+    df_out['z_score_3m'] = roll_zscore(df_out[m], 60)
+    df_out['z_score_6m'] = roll_zscore(df_out[m], 180)
+
+    df_out['z_sprd_z_score_1m'] = roll_zscore(df_out[m+'z_sprd'],20)
+    df_out['z_sprd_z_score_3m'] = roll_zscore(df_out[m+'z_sprd'],60)
+    df_out['z_sprd_z_score_6m'] = roll_zscore(df_out[m+'z_sprd'],180)
+    return df_out
+
+
+
+def roll_zscore(x, window):
+    r = x.rolling(window=window, min_periods=1)
+    m = r.mean().shift(1)
+    s = r.std(ddof=0).shift(1)
+    z = (x-m)/s
+    return z
 

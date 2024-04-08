@@ -19,7 +19,8 @@ con.start()
 
 ### Build from batch_hist
 def ois_from_nodes(a,conv):
-#    a = sofr_h.iloc[9]
+#    a = hist['SOFR_DC'].iloc[9]
+#    conv = ccy('SOFR_DC', today)
     c = conv
     d1 = a.name
 
@@ -34,7 +35,8 @@ def ois_from_nodes(a,conv):
     q_dates = [datetime_to_ql(a['Dates'][j]) for j in np.arange(len(a['Dates']))]
     l_rates = a['Rates']
 
-    ois_curve = ql.MonotonicLogCubicDiscountCurve(q_dates, l_rates, ql.Actual360(), ql.UnitedStates(ql.UnitedStates.FederalReserve))
+    ois_curve = ql.MonotonicLogCubicDiscountCurve(q_dates, l_rates, ql.Actual360(), c.cal)
+    ois_curve.enableExtrapolation()
 
     class ois_from_nodes():
         def __init__(self):
@@ -70,7 +72,6 @@ def ois_dc_build(a,b=0):
 #    b = '18-10-2023'
 
     c = ccy(a,today)
-
     #### date handling for hist 
     if isinstance(b,int) == True:
         ref_date = c.cal.advance(today,b,ql.Days)
@@ -107,8 +108,6 @@ def ois_dc_build(a,b=0):
         crv_h = hist[a]
 
     try:
-#    if ql_to_datetime(ref_date).strftime('%d/%m/%Y') in crv_h.index:
-#        locat = hist(a).hist['Ref_Date'].tolist().index(ql_to_datetime(ref_date))
         output = ois_from_nodes(crv_h.loc[ql_to_datetime(ref_date).strftime('%d/%m/%Y')],c)
         print("*** !!! ois_curve retrieved from hist !!! ***")
         from_hist_flag = 1
@@ -124,7 +123,7 @@ def ois_dc_build(a,b=0):
         helpers = [ ql.DepositRateHelper(ql.QuoteHandle(ql.SimpleQuote(rate/100)),
                                          ql.Period(fixingDays,ql.Days), 0,
                                          c.cal, ql.Following, False, c.floating[1])
-                    for rate, fixingDays in [(OIS_ON,0), (OIS_ON,1), (OIS_ON,2) ]]
+                    for rate, fixingDays in [(OIS_ON, int(i)) for i in np.arange(1+c.sett_d)] ]
 
         OIS_DC = c.index_a
 
@@ -160,18 +159,15 @@ def ois_dc_build(a,b=0):
         #### ad-hoc 18m ticker
             x1.iloc[8] = 'ADSO1F ICPL Curncy'
 
-
-
         x1['Tenor'] = x2
 
-        if a == 'CAD_OIS_DC':
+        if a == 'CORRA_DC':
             x1 = pd.concat([x1[:14],c.add_tenors])
         else:
             x1 = pd.concat([x1,c.add_tenors])
         x1 = x1.reset_index()
         x1.drop(columns= ['index'], inplace = True)
-
-        if a == 'CAD_OIS_DC':
+        if a == 'CORRA_DC':
             for i in np.arange(len(x1)):
                 x1['value'].iloc[i] = x1['value'].iloc[i].split()[0]+' BLC3 Curncy'
 
@@ -179,13 +175,7 @@ def ois_dc_build(a,b=0):
             for i in np.arange(9,len(x1)):
                 x1['value'].iloc[i] = x1['value'].iloc[i].split()[0][:2]+'SO'+str(i-6)+' BLC3 Curncy'
 
-    #    if a == 'AONIA_DC':                       ######## BGN and CMPN misses historic 2y rates
-    #        for i in np.arange(len(x1)):
-    #            x1['value'].iloc[i] = x1['value'].iloc[i].split()[0]+' CBBT Curncy'
-
-
         x3 = con.bdh(x1['value'].tolist(),'PX_LAST',bbg_t,bbg_t, longdata = True)
-
 
         x1 = x1.set_index('value').join(x3.set_index('ticker'))
         x1= x1.dropna()
@@ -193,23 +183,12 @@ def ois_dc_build(a,b=0):
         x1 = x1.reset_index()
         x1.rename(columns={'value': 'TenorTicker', }, inplace=True)
 
-        #x1
-        #i=21
-        #con.bdh(x1['value'][i].split()[0]+str(' BGN ')+x1['value'][i].split()[1],'PX_LAST',bbg_t,bbg_t).iloc[0][0]
-
-        #x1['Rate'] = pd.Series([con.bdh(x1['value'][i].split()[0]+str(' BXSW ')+x1['value'][i].split()[1],'PX_LAST',bbg_t,bbg_t).iloc[0][0]
-        #                             for i in range(len(x1))  ])
         x1['TenorNum'] = pd.Series([int(x1['Tenor'][i][0:-1]) for i in range(len(x1))])
         x1['TenorUnit'] = pd.Series( dtype=float)
-
         TU_Dict = {'D': 0, 'W': 1, 'M': 2, 'Y': 3}
-
         x1['TenorUnit'] = [TU_Dict[x1['Tenor'].tolist()[i][-1]] for i in range(len(x1))]
-
-
         x1['List'] = [ (x1['Rate'][i],(int(x1['TenorNum'][i]),int(x1['TenorUnit'][i]))) for i in range(len(x1)) ]
         L1 = x1['List'][1:].tolist()
-
 
         ####### 1w, 2w, 3w, 1m helpers only to be used for long lead date to meetign dates
         ############################### Helpers aggregate rate + maturities
@@ -282,29 +261,7 @@ def ois_dc_build(a,b=0):
         #EONIA_DC_curve = ql.PiecewiseFlatForward(0, ql.TARGET(), helpers, ql.Actual360())
         OIS_DC_curve.enableExtrapolation()
 
-
-    #    def swap_plot():
-    #        d2 = OIS_DC_curve.referenceDate()
-    #        d3 = d2 + ql.Period(40,ql.Years)
-    #
-    #        dates_in = [ ql.Date(serial) for serial in range(d2.serialNumber(),d3.serialNumber()+1) ]
-    #
-    #        rates_c = [100*OIS_DC_curve.forwardRate(d, c.cal.advance(d,1,ql.Days), c.floating[1], ql.Simple).rate()
-    #                for d in dates_in ]
-    #        yr_axis = [(dates_in[i]-dates_in[0])/365.25 for i in range(len(dates_in)) ]
-    #
-    #        plt.plot( yr_axis , rates_c , color = "blue")
-
-    #    fig = swap_plot()
-    #    d2 = OIS_DC_curve.referenceDate()
-    #    d3 = d2 + ql.Period(3,ql.Months)
-
-    #    dates_in = [ ql.Date(serial) for serial in range(d2.serialNumber(),d3.serialNumber()+1) ]
-
-    #    rates_c_simple = [100*OIS_DC_curve.forwardRate(d, c.cal.advance(d,1,ql.Days), c.floating[1], ql.Simple).rate() for d in dates_in ]
-    #    rates_c_compd = [100*OIS_DC_curve.forwardRate(d, c.cal.advance(d,1,ql.Days), c.floating[1], ql.Compounded).rate() for d in dates_in ]
-
-    #    np.array(rates_c_compd) - np.array(rates_c_simple)
+#        OIS_DC_curve.nodes()
 
     ################# REPRICING STRIP
     #    100-100*OIS_DC_curve.forwardRate(ql.Date(15,12,2021), c.cal.advance(ql.Date(15,12,2021),3,ql.Months), c.floating[1], ql.Simple).rate()
@@ -395,7 +352,7 @@ def ois_dc_build(a,b=0):
 
 ###### Get short end step pricing
 def get_wirp(a):
-#    a = [['SOFR_DC'], [datetime.date(2024, 2, 19), datetime.date(2024, 1, 8)]]
+#    a = [['AONIA_DC'], [datetime.date(2024, 3, 13), datetime.date(2024, 3, 13)]]
     today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
     d = a[1]
     print(d)
@@ -403,7 +360,6 @@ def get_wirp(a):
     x5 = dict([(key, []) for key in a[0]])
 
     for j in a[0]:
-#        j = 'SOFR_DC'
         c = ccy(j, today)
         ticker = c.bbgplot_tickers[2]
         contrib = c.contrib[0]
@@ -411,12 +367,11 @@ def get_wirp(a):
         base_ticker = c.base_ticker
 
         for i in np.arange(len(d)):
-#            i = 0
             d1 = c.cal.advance(datetime_to_ql(d[i]), ql.Period('0D'))
             ### Get bbg tickers
             if c.curncy == ql.USDCurrency():
                 t_list = [ticker+str(i)+' '+contrib+' Curncy' for i in range(1,n_meets) ]
-            elif c.curncy == ql.EURCurrency() or c.curncy == ql.GBPCurrency():
+            elif c.curncy in [ql.EURCurrency(), ql.GBPCurrency(), ql.CADCurrency(), ql.AUDCurrency()]:
                 t_list = [ticker + str(i) + 'A ' + contrib + ' Curncy' for i in range(1, n_meets)]
 
             df1 = con.bdh(t_list, 'PX_LAST', bbg_date_str(d1), bbg_date_str(d1), longdata=True)
@@ -436,12 +391,13 @@ def get_wirp(a):
             x2 = list(x1[np.array([ x1[i] < ql_to_datetime(today) for i in np.arange(len(x1)) ])])
             x3 = [bbg_date_str( datetime_to_ql(x2[i])) for i in np.arange(len(x2))]
 
-            y = pd.Series([ pd.datetime(int(x[i][0:4]),int(x[i][5:7]),int(x[i][8:10])) for i in range(len(x)) ])
+            y = pd.Series([ datetime.datetime(int(x[i][0:4]),int(x[i][5:7]),int(x[i][8:10])) for i in range(len(x)) ])
             y = pd.DataFrame(y[y > (datetime.datetime.combine(d[i], datetime.datetime.min.time())+pd.DateOffset(days=-1))  ], columns = ['Meets'])    ##### future meetings
             if len(y) == len(t_list):
                 meet_index = pd.Series([y.iloc[i,][0].strftime('%b') + '-' + y.iloc[i,][0].strftime('%y') for i in range(len((y)))])
-            else:
-                y1 = y['Meets'].append( pd.Series([ y[-1:]['Meets'].values[0]+np.timedelta64(45*i,'D') for i in range(1, len(t_list)-len(y)+1 )] ) )   ##### generate own future fomc dates
+            else:   ##### generate own future fomc dates
+#                y1 = y['Meets'].append( pd.Series([ y[-1:]['Meets'].values[0]+np.timedelta64(45*i,'D') for i in range(1, len(t_list)-len(y)+1 )] ) )
+                y1 = pd.concat( [y['Meets'],pd.Series([ y[-1:]['Meets'].values[0]+np.timedelta64(45*i,'D') for i in range(1, len(t_list)-len(y)+1 )])], ignore_index=True )
                 y2 = pd.DataFrame(y1)
                 meet_index = pd.Series( [y2.iloc[i,][0].strftime('%b') +'-'+ y2.iloc[i,][0].strftime('%y') for i in range(len((y2))) ] )
             try:
@@ -464,34 +420,44 @@ def get_wirp(a):
 
     return [df_l, x5]
 
+#dt1 = get_wirp([['SOFR_DC'], [datetime.date(2024, 3, 13), datetime.date(2024, 3, 11)]])
+#dt1 = get_wirp([['ESTER_DC'], [datetime.date(2024, 3, 13), datetime.date(2024, 3, 11)]])
+
+
 #dt = get_wirp( [['SOFR_DC','SONIA_DC'], [datetime.date(2024, 2, 7), datetime.date(2023, 10, 18)]] )
 #dt = get_wirp( [['SOFR_DC','SONIA_DC'], [datetime.date(2024, 2, 7)]] )
 #dt = get_wirp( [['SOFR_DC'], [datetime.date(2024, 2, 7),datetime.date(2024, 1, 5),datetime.date(2023, 10, 18)]] )
 
-def get_wirp_hist(a):
-#    a = 'SOFR_DC'
-
+def get_wirp_hist(a, write = 0, update = 1):
+#    a = 'SONIA_DC'
     today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
     c = ccy(a,today)
     ticker = c.bbgplot_tickers[2]
     contrib = c.contrib[0]
     n_meets = c.contrib[1]
     base_ticker = c.base_ticker
-    d_start = c.cal.advance(today, ql.Period('-2Y'))
+
+    if update == 0:
+        d_start = ql.Date(3,1,2019)   ### Fixed - initial write
+    else:
+        os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
+        prev_df = pd.read_pickle("./DataLake/"+a+"_OIS_MEETING_HIST.pkl")
+        d_start = datetime_to_ql(prev_df['date'].iloc[-20].date())
+        df_feed = prev_df[prev_df['date'] < datetime.datetime.combine(ql_to_datetime(d_start), datetime.datetime.min.time()) ]
 
     if c.curncy == ql.USDCurrency():
         t_list = [ticker + str(i) + ' ' + contrib + ' Curncy' for i in range(1, n_meets)]
-    elif c.curncy == ql.EURCurrency() or c.curncy == ql.GBPCurrency():
+    elif c.curncy in [ql.EURCurrency(), ql.GBPCurrency(), ql.CADCurrency(), ql.AUDCurrency()]:
         t_list = [ticker + str(i) + 'A ' + contrib + ' Curncy' for i in range(1, n_meets)]
 
     df1 = con.bdh(t_list, 'PX_LAST', bbg_date_str(d_start), bbg_date_str(today), longdata=True)
 
     if c.curncy == ql.USDCurrency():
         df1['meet_num'] = [int(df1['ticker'][i].split()[0][len(ticker):]) for i in np.arange(len(df1))]
-    elif c.curncy == ql.EURCurrency() or c.curncy == ql.GBPCurrency():
+    elif c.curncy in [ql.EURCurrency(), ql.GBPCurrency(), ql.CADCurrency(), ql.AUDCurrency()]:
         df1['meet_num'] = [int(df1['ticker'][i].split()[0][len(ticker):-1]) for i in np.arange(len(df1))]
 
-    x = con.bulkref(base_ticker, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", bbg_date_str(d_start)), ("END_DT", bbg_date_str(c.cal.advance(d_start, ql.Period('4Y'))))])['value']
+    x = con.bulkref(base_ticker, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", bbg_date_str(d_start)), ("END_DT", bbg_date_str(c.cal.advance(today, ql.Period('4Y'))))])['value']
     y = pd.Series([pd.datetime(int(x[i][0:4]), int(x[i][5:7]), int(x[i][8:10])) for i in range(len(x))])
     z = pd.Series([y[i].date() for i in np.arange(len(y)) ])
     intra_meet_length = np.mean(np.diff(z)).days
@@ -507,11 +473,12 @@ def get_wirp_hist(a):
     d_cum = []
     for i in np.arange(len(d_unique)):
         y_filter = np.sum(d_unique[i] > y1)
-        cut_off = len(df3[df3['date'] == d_unique[i]])
-        m =max(df3[df3['date'] == d_unique[i]]['meet_num'])
-        if 0.5*m*(m+1) != np.sum(df3[df3['date'] == d_unique[i]]['meet_num']):
-            print("you have an issue with ordering:", i, d_unique[i])
-        d_index.append( meet_index[y_filter:y_filter+cut_off])
+#        cut_off = len(df3[df3['date'] == d_unique[i]])
+        mn = df3[df3['date'] == d_unique[i]]['meet_num']
+#        m = max(mn)
+#        if 0.5*m*(m+1) != np.sum(df3[df3['date'] == d_unique[i]]['meet_num']):   #### solved
+#            print("you have an issue with ordering:", i, d_unique[i])
+        d_index.append( meet_index[np.array(y_filter)-1+mn.tolist()] )
     d_index2 = flat_lst(d_index)
     df3['meet'] = d_index2
     df3['step2'] = np.round(100*(df3['value'].diff()),1)
@@ -526,9 +493,97 @@ def get_wirp_hist(a):
     d_cum2 = flat_lst(d_cum)
     df3['cum'] = np.round(d_cum2,0)
 
+    if update != 0:
+        df3 = pd.concat([df_feed, df3])
+
+    if write == 1:
+        os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject\DataLake')
+        df3.to_pickle(a + '_OIS_MEETING_HIST.pkl')
+        os.chdir('C:\\Users\A00007579\PycharmProjects\pythonProject')
+
     return df3
 
-#df1 = get_wirp_hist('SOFR_DC')
-
+#df1 = get_wirp_hist('AONIA_DC', write=1, update = 0)
 #c = ccy('SOFR_DC', today)
 #c.ois_meet_hist
+
+
+
+###### chf cb meet date from fut
+#
+# a = 'SARON_DC'
+# today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
+# c = ccy(a,today)
+# ticker = c.bbgplot_tickers[2]
+# contrib = c.contrib[0]
+# n_meets = c.contrib[1]
+# base_ticker = c.base_ticker
+#
+# d_start = ql.Date(3,1,2022)   ### Fixed - initial write
+# imm_st = np.array(get_next_imm(d_start,40))
+# t_list = [ticker + str(i) + ' Comdty' for i in range(1, n_meets)]
+#
+# df1 = con.bdh(t_list, 'PX_LAST', bbg_date_str(d_start), bbg_date_str(today), longdata=True)
+# df1['meet_num'] = [int(df1['ticker'][i].split()[0][-1:]) for i in np.arange(len(df1))]
+# df1['imm_st'] = [  imm_st[(imm_st > c.cal.advance(datetime_to_ql(df1['date'][i]), ql.Period('-3M')) ).tolist()][df1['meet_num'][i]-1] for i in np.arange(len(df1))]
+# df1['imm_mt'] = [  imm_st[(imm_st > c.cal.advance(datetime_to_ql(df1['date'][i]), ql.Period('-3M')) ).tolist()][df1['meet_num'][i]]-1 for i in np.arange(len(df1))]
+# df1['value'] = np.round(100-df1['value'],4)
+#
+#
+# x = con.bulkref(base_ticker, 'ECO_FUTURE_RELEASE_DATE_LIST', ovrds=[("START_DT", bbg_date_str( c.cal.advance(d_start,ql.Period('-3M')))), ("END_DT", bbg_date_str(c.cal.advance(today, ql.Period('4Y'))))])['value']
+# y = pd.Series([pd.datetime(int(x[i][0:4]), int(x[i][5:7]), int(x[i][8:10])) for i in range(len(x))])
+# z = pd.Series([y[i].date() for i in np.arange(len(y)) ])
+# intra_meet_length = np.mean(np.diff(z)).days
+# fut_gen_n = len(t_list) - np.sum(z > ql_to_datetime(today)) + 1
+# y1 = pd.Series(y.tolist()+pd.Series([y[-1:].values[0] + np.timedelta64(90 * i, 'D') for i in range(1,fut_gen_n)]).tolist())   ##### days change to quarterly meetings!
+# meet_index = pd.Series([y1[i].strftime('%b') + '-' + y1[i].strftime('%y') for i in range(len((y1)))])
+#
+#
+# df2 = df1.sort_values(['date', 'meet_num'])
+# df3 = df2.reset_index(drop=True)
+# d_unique = df3['date'].unique()
+# d_index = []
+# d_index_dates = []
+# d_index3 = []
+# d_cum = []
+# for i in np.arange(len(d_unique)):
+#     y_filter = np.sum(d_unique[i] > y1)-1               ########### adj to -1 for ois fut
+# #    print(i,y_filter)
+#     mn = df3[df3['date'] == d_unique[i]]['meet_num']
+#     d_index.append( meet_index[np.array(y_filter)-1+mn.tolist()] )
+#     d_index_dates.append(y1[np.array(y_filter)-1+mn.tolist()])
+# d_index2 = flat_lst(d_index)
+# d_index2_dates = flat_lst(d_index_dates)
+# df3['meet'] = d_index2
+# df3['meet_date'] = d_index2_dates
+# df3['eff_date'] = [c.cal.advance( datetime_to_ql(df3['meet_date'][i]), ql.Period('1d')) for i in np.arange(len(df3))]
+# df3['n1'] = df3['eff_date'] - df3['imm_st']
+# df3['total_days'] = df3['imm_mt'] - df3['imm_st']
+#
+#
+# df3['step2'] = np.round(100*(df3['value'].diff()),1)
+# for i in np.arange(len(df3)):
+#     if df3['meet_num'][i] == 1:
+#         d_index3.append(0.0)
+#     else:
+#         d_index3.append(df3['step2'][i])
+# df3['step'] = d_index3
+# for i in np.arange(len(d_unique)):
+#     d_cum.append( df3[df3['date']==d_unique[i]]['step'].cumsum().tolist() )
+# d_cum2 = flat_lst(d_cum)
+# df3['cum'] = np.round(d_cum2,0)
+#
+#
+#
+# df3[df3['ticker']=='SSY2 Comdty']
+# df3[df3['ticker']=='SSY3 Comdty']
+# df3[df3['ticker']=='SSY4 Comdty']
+#
+# df3[-20:]
+#
+#
+#
+#
+#
+#
+#

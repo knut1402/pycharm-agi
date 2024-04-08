@@ -366,6 +366,8 @@ def curve_hmap(a,b=-1, offset=[-1], ois_flag = 0):
 
 
 
+
+
 ################################################## Swap Calc for Quixotic monitor
 
 def swap_table2(crvs, outright_rates, fwd_rates, curve_rates, fly_rates,  shift = [0,'1M','3M','6M',1], price_nodes = 1):

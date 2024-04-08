@@ -49,7 +49,7 @@ class WirpPlot(param.Parameterized):
         today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
         self.c = ccy('SOFR_DC', today)
 
-        options_list = ['SOFR_DC', 'ESTER_DC', 'SONIA_DC']
+        options_list = ['SOFR_DC', 'ESTER_DC', 'SONIA_DC', 'AONIA_DC', 'CORRA_DC']
         self.layout_pane = pn.Column()
         self.multi_select = pn.widgets.MultiSelect(name='Curves', options=options_list, size=6, styles={'color': 'black', 'font-size': '8pt'}, width=120, height=800, margin=(5, 20, 10, 10))
         self.offset_dates = pn.widgets.TextInput(name='Offsets [latest -> earliest]', value=ql_to_datetime( self.c.cal.advance(today, ql.Period('0D'), ql.Preceding) ).strftime('%d-%m-%Y'),  styles={'color': 'black', 'font-size': '8pt'}, width=350, height=30, margin=(20, 20, 10, 10))

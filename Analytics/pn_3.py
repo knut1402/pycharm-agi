@@ -1,11 +1,13 @@
 import panel as pn
 
-from pn_2 import InflSwapMon
-from pn_swap_plot import SwapPlot
 from pn_swap_monitor import SwapMon
+from pn_inflation_swap import InflSwapMon
+from pn_swap_plot import SwapPlot
+from pn_swap_heatmap import SwapHeatMap
 from pn_wirp_plot import WirpPlot
 from pn_listed_options import ListedTab
 from pn_ecfc import ECFC
+from pn_linker_rv import LinkerRV
 
 
 class Quix3:
@@ -13,16 +15,20 @@ class Quix3:
         self.tab1 = SwapMon()
         self.tab2 = InflSwapMon()
         self.tab3 = SwapPlot()
-        self.tab4 = WirpPlot()
-        self.tab5 = ListedTab()
-        self.tab6 = ECFC()
+        self.tab4 = SwapHeatMap()
+        self.tab5 = WirpPlot()
+        self.tab6 = ListedTab()
+        self.tab7 = ECFC()
+        self.tab8 = LinkerRV()
 
         self.main = pn.Tabs( ('SWPM',self.tab1.view),
                              ('INFL',self.tab2.view),
                              ('SW_PLOT',self.tab3.view),
-                             ('WIRP',self.tab4.view),
-                             ('LISTED', self.tab5.view),
-                             ('ECFC',self.tab6.view))
+                             ('SW_HM', self.tab4.view),
+                             ('WIRP',self.tab5.view),
+                             ('LISTED', self.tab6.view),
+                             ('ECFC',self.tab7.view),
+                             ('LINKER',self.tab8.view))
     def publish(self):
         return self.main.servable()
 

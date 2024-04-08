@@ -1,9 +1,9 @@
 ##### inflation historical + fwd 1y plotting
 import matplotlib.pyplot as plt
 
-xt = infl_zc_swap_build('HICPxT', b=-1)
-rpi = infl_zc_swap_build('UKRPI', b=-1)
-cpi = infl_zc_swap_build('USCPI', b=-1)
+xt = infl_zc_swap_build('HICPxT', b=0)
+rpi = infl_zc_swap_build('UKRPI', b=0)
+cpi = infl_zc_swap_build('USCPI', b=0)
 
 
 ### Define start historic dates and length of fwd projection
@@ -224,6 +224,46 @@ plt.title('Main Energy subcomponents YoY ')
 plt.grid(visible=True, linestyle='--', linewidth=0.2)
 plt.legend()
 plt.show()
+
+
+
+###### new homes single family price
+
+df1 = con.bdh(['NHSLAVSL Index'],'PX_LAST', '19690101', '20240330', longdata=True)
+df2 = con.bdh(['CPURNSA Index'],'PX_LAST', '19690101', '20240330', longdata=True)
+df1['mom'] = df1['value'].pct_change(periods=1)
+df1['mom_cpi'] = df2['value'].pct_change(periods=1)
+df1['yoy'] = df1['value'].pct_change(periods=12)
+df1['yoy_cpi'] = df2['value'].pct_change(periods=12)
+
+df1['real_mom'] = np.round(100*(df1['mom'] - df1['mom_cpi']),1)
+df1['real_yoy'] = np.round(100*(df1['yoy'] - df1['yoy_cpi']),1)
+df1['cum'] = df1['real_mom'].cumsum()
+df1['hwm'] = df1['cum'].cummax()
+df1['dd'] = df1['cum'] - df1['hwm']
+
+df1[-50:]
+df1[:50]
+
+
+plt.plot(df1['date'], df1['real_yoy'])
+plt.show()
+
+plt.plot(df1['date'], df1['dd'])
+plt.show()
+
+
+fig, ax = plt.subplots(2, figsize=(15, 12), tight_layout=True)
+ax[0].plot(df1['date'], df1['real_yoy'], label = 'real yoy (%), latest:  '+ str(df1['real_yoy'].iloc[-1]) )
+ax[0].legend()
+ax[0].set_title('US New Homes - Single Family - Median Prices - Real')
+ax[1].plot(df1['date'], df1['dd'], label = 'drawdown (%), latest:  '+ str(np.round(df1['dd'].iloc[-1],1)), color = 'red')
+ax[1].legend()
+fig.show()
+
+
+
+
 
 
 

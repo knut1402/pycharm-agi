@@ -29,7 +29,7 @@ from Conventions import FUT_CT,FUT_CT_Q, ccy
 ########################################### BUILD SURFACE !! 
 def build_vol_surf(chain_ticker, chain_len=[12,12], b=0):
     
-#    chain_ticker = ['RXH4P 133.0']
+#    chain_ticker = ['TYM4P 111.0']
 #    chain_len = [12,12]
 #    b = 0
 
@@ -229,11 +229,12 @@ def build_vol_surf(chain_ticker, chain_len=[12,12], b=0):
     print("*** !!! listed_vol surf built !!! ***")
     return vol_surf_output()
 
-#v1 = build_vol_surf(['TYH4P 111'], chain_len=[15,15], b=0)
+#v1 = build_vol_surf(['TYM4P 111'], chain_len=[15,15], b=0)
 #v2 = build_vol_surf(['TYH4P 111'], chain_len=[12,12], b=-1)
 #v1 = build_stir_vol_surf(['0EH2P 98.5'], chain_len=[8,8], b=0)
 #df = v2.tab
 #v1.tab
+
 
 #################### build vol spline 
 def build_vol_spline(fut, sim_spot, a):

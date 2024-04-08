@@ -249,7 +249,7 @@ plt.show()
 
 ############################# one specific fwd fixing from scratch!
 m='10'
-ticker = ['EUSWIF'+m+' INFA Curncy', 'EUSWIH'+m+' INFA Curncy']
+ticker = ['EUSWIF'+m+' INFF Curncy', 'EUSWIH'+m+' INFF Curncy']
 today = ql.Date(datetime.datetime.now().day, datetime.datetime.now().month, datetime.datetime.now().year)
 
 if int(m) < 8:
@@ -265,8 +265,8 @@ else:
 d1 = str(today.year()-yr_ct)+m1+'20'
 d2 = str(today.year()-yr_ct-1)+m1+'20'
 
-o1 = con.bdh(ticker[0] , 'PX_LAST', d2, latest, longdata = True)
-o2 = con.bdh(ticker[1] , 'PX_LAST', d2, latest, longdata = True)
+o1 = con.bdh(ticker[0] , 'PX_LAST', d2, bbg_date_str(today, ql_date = 1), longdata = True)
+o2 = con.bdh(ticker[1] , 'PX_LAST', d2, bbg_date_str(today, ql_date = 1), longdata = True)
 
 
 df1 = pd.DataFrame()

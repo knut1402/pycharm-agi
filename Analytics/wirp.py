@@ -1,4 +1,5 @@
 #### WIRP
+import pandas as pd
 
 curve = 'US'
 method = '0'
@@ -35,3 +36,29 @@ datetime.datetime.now().AddMonths(1)
 relativedelta(months=3)
 
 datetime.timedelta(3*365/12)
+
+
+con.ref(bond_fut_dets[0]+' Govt', ['YLD_YTM_BID'], ovrds =[('PX_BID',fwd_px),(('SETTLE_DT',bbg_date_str(bond_fut_dets[1], ql_date=0)))])
+
+
+con.ref('YMH4 Comdty', ['RISK_MID'], ovrds =[('MID',96.3)])
+
+
+p = 95.865
+b = (100-p)/200
+
+p_range = np.arange(93, 100, 0.005)
+c_value = [(3*(1-(  (1/(1+ ((100-p)/200)  ))**20))/  ((100-p)/200)  ) + 100*( (1/(1+ ((100-p)/200) ))**20) for p in p_range]
+
+df1 = pd.DataFrame()
+df1['fut_px'] = np.round(p_range,3)
+df1['c_value'] = c_value
+df1['tick_value'] = df1['c_value'].diff()
+df1['dv01'] = df1['tick_value']*200   ######  this is 200 because tick size = 0.005.... change for other contracts !!
+
+
+
+df1['c_value'].diff()
+
+
+df1[df1['fut_px'] == 95.87]
